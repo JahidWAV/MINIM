@@ -13,8 +13,10 @@ app.use(cors());
 // Sert le site vitrine (dossier public) pour la validation Stripe
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Extraction des variables d'environnement de Render
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+// Extraction des variables d'environnement de Render avec version d'API sécurisée
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2023-10-16'
+});
 const JWT_SECRET = process.env.JWT_SECRET || 'minim_default_secret_key_2026';
 
 const USERS_DB = [];
@@ -24,7 +26,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ─── API : REGISTER & STRIPE GENERATION (CORRIGÉ POUR STRIPE FRANCE)
+// ─── API : REGISTER & STRIPE GENERATION (CORRIGÉ CONFORME STRIPE v15+ FRANCE)
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { email, password, companyName } = req.body;
@@ -34,13 +36,15 @@ app.post('/api/auth/register', async (req, res) => {
         
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 1. Étape obligatoire pour la France : Création du token d'entreprise sécurisé
-        const accountToken = await stripe.accountTokens.create({
-            business_type: 'company',
-            company: {
-                name: companyName,
+        // 1. Étape obligatoire pour la France : Création du token via l'arborescence standard v15+
+        const tokenResult = await stripe.tokens.create({
+            account: {
+                business_type: 'company',
+                company: {
+                    name: companyName,
+                },
+                tos_shown_and_accepted: true,
             },
-            tos_shown_and_accepted: true,
         });
 
         // 2. Création du compte Custom lié au Token conforme
@@ -48,7 +52,7 @@ app.post('/api/auth/register', async (req, res) => {
             type: 'custom',
             country: 'FR',
             email: email,
-            account_token: accountToken.id, // On injecte le token ici
+            account_token: tokenResult.id, // Injection du token d'architecture
             capabilities: {
                 treasury: { requested: true },
                 card_issuing: { requested: true }

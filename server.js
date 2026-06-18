@@ -24,7 +24,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ─── API : REGISTER & STRIPE GENERATION
+// ─── API : REGISTER & STRIPE GENERATION (CORRIGÉ POUR STRIPE FRANCE)
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { email, password, companyName } = req.body;
@@ -34,10 +34,21 @@ app.post('/api/auth/register', async (req, res) => {
         
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // 1. Étape obligatoire pour la France : Création du token d'entreprise sécurisé
+        const accountToken = await stripe.accountTokens.create({
+            business_type: 'company',
+            company: {
+                name: companyName,
+            },
+            tos_shown_and_accepted: true,
+        });
+
+        // 2. Création du compte Custom lié au Token conforme
         const stripeAccount = await stripe.accounts.create({
             type: 'custom',
             country: 'FR',
             email: email,
+            account_token: accountToken.id, // On injecte le token ici
             capabilities: {
                 treasury: { requested: true },
                 card_issuing: { requested: true }
@@ -45,6 +56,7 @@ app.post('/api/auth/register', async (req, res) => {
             business_profile: { name: companyName }
         });
 
+        // 3. Création du compte financier Treasury
         const financialAccount = await stripe.treasury.financialAccounts.create({
             supported_currencies: ['eur'],
             features: {

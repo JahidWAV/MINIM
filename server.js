@@ -1,174 +1,126 @@
+require('dotenv').config();
 const express = require('express');
-const Stripe = require('stripe');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const cors = require('cors');
-const path = require('path');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const app = express();
-
 app.use(express.json());
 app.use(cors());
 
-// Sert le site vitrine (dossier public) pour la validation Stripe
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Extraction des variables d'environnement de Render avec version d'API sécurisée
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2023-10-16'
-});
-const JWT_SECRET = process.env.JWT_SECRET || 'minim_default_secret_key_2026';
-
+// Simulation d'une base de données (À remplacer par MongoDB/PostgreSQL plus tard)
 const USERS_DB = [];
 
-// Affiche la page d'accueil (Site vitrine)
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Clé secrète pour sécuriser les sessions NorPay
+const JWT_SECRET = process.env.JWT_SECRET || 'norpay_secret_ultra_secure_2026';
 
-// ─── API : REGISTER & STRIPE GENERATION (CORRIGÉ CONFORME STRIPE v15+ FRANCE)
-app.post('/api/auth/register', async (req, res) => {
+console.log("🚀 Serveur NorPay initialisé et prêt.");
+
+// --- ROUTES D'AUTHENTIFICATION DE BASE ---
+
+// 1. Inscription (Création du profil NorPay)
+app.post('/register', async (req, res) => {
     try {
-        const { email, password, companyName } = req.body;
-        if (!email || !password || !companyName) {
-            return res.status(400).json({ error: 'Champs manquants' });
+        const { email, password, name } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: "Email et mot de passe requis." });
         }
-        
+
+        const userExists = USERS_DB.find(user => user.email === email);
+        if (userExists) {
+            return res.status(400).json({ error: "Cet email est déjà utilisé." });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // 1. Étape obligatoire pour la France : Création du token via l'arborescence standard v15+
-        const tokenResult = await stripe.tokens.create({
-            account: {
-                business_type: 'company',
-                company: {
-                    name: companyName,
-                },
-                tos_shown_and_accepted: true,
-            },
-        });
-
-        // 2. Création du compte Custom lié au Token conforme
-        const stripeAccount = await stripe.accounts.create({
-            type: 'custom',
-            country: 'FR',
-            email: email,
-            account_token: tokenResult.id, // Injection du token d'architecture
-            capabilities: {
-                treasury: { requested: true },
-                card_issuing: { requested: true }
-            },
-            business_profile: { name: companyName }
-        });
-
-        // 3. Création du compte financier Treasury
-        const financialAccount = await stripe.treasury.financialAccounts.create({
-            supported_currencies: ['eur'],
-            features: {
-                inbound_transfers: { ach: true },
-                outbound_transfers: { ach: true }
-            }
-        }, { stripeAccount: stripeAccount.id });
-
+        
         const newUser = {
             id: Date.now().toString(),
             email,
             password: hashedPassword,
-            companyName,
-            stripeAccountId: stripeAccount.id,
-            financialAccountId: financialAccount.id
+            name: name || 'Utilisateur NorPay',
+            cryptoWalletAddress: null, // Sera rempli par Privy plus tard !
+            createdAt: new Date()
         };
+
         USERS_DB.push(newUser);
+        console.log(`👤 Nouvel utilisateur inscrit sur NorPay : ${email}`);
 
-        const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: '30d' });
-
-        res.status(201).json({
+        // Génération du token de session
+        const token = jwt.sign({ userId: newUser.id, email: newUser.email }, JWT_SECRET, { expiresIn: '24h' });
+        
+        res.status(201).json({ 
+            message: "Utilisateur créé avec succès !",
             token,
-            companyName: newUser.companyName,
-            stripeAccountId: newUser.stripeAccountId,
-            financialAccountId: financialAccount.id
+            user: { id: newUser.id, email: newUser.email, name: newUser.name }
         });
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Erreur lors de l'inscription." });
     }
 });
 
-// ─── API : LOGIN
-app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-    const user = USERS_DB.find(u => u.email === email);
-    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+// 2. Connexion
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = USERS_DB.find(u => u.email === email);
 
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return res.status(401).json({ error: 'Mot de passe incorrect' });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ error: "Identifiants incorrects." });
+        }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, companyName: user.companyName });
+        const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+        
+        console.log(`🔓 Connexion réussie pour : ${email}`);
+        res.json({ 
+            token, 
+            user: { id: user.id, email: user.email, name: user.name, wallet: user.cryptoWalletAddress } 
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: "Erreur lors de la connexion." });
+    }
 });
 
-// MIDDLEWARE JWT SÉCURITÉ
-const authenticateToken = (req, res, next) => {
+// --- MIDDLEWARE DE SÉCURITÉ ---
+function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) return res.sendStatus(403);
-        req.user = USERS_DB.find(u => u.id === decoded.userId);
-        if (!req.user) return res.sendStatus(404);
+    if (!token) return res.status(401).json({ error: "Accès refusé. Token manquant." });
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: "Token invalide ou expiré." });
+        req.user = user;
         next();
     });
-};
+}
 
-// ─── API : GET BALANCE & IBAN
-app.get('/api/treasury/dashboard', authenticateToken, async (req, res) => {
-    try {
-        const financialAccount = await stripe.treasury.financialAccounts.retrieve(
-            req.user.financialAccountId,
-            { stripeAccount: req.user.stripeAccountId }
-        );
-
-        const addresses = financialAccount.financial_addresses || [];
-        const ibanDetails = addresses.find(addr => addr.type === 'iban') || {};
-
-        res.json({
-            balance: financialAccount.balance.cash.eur / 100,
-            iban: ibanDetails.iban || "FR76300610000000000000TEST",
-            bic: ibanDetails.bic || "STRIPEF2XXX"
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+// --- ROUTE DASHBOARD CRYPTO (SIMULÉE POUR FLUTTER) ---
+app.get('/dashboard', authenticateToken, (req, res) => {
+    const user = USERS_DB.find(u => u.id === req.user.userId);
+    
+    // Pour l'instant, on simule des données de wallet stylées pour ton app Flutter
+    res.json({
+        appName: "NorPay",
+        userName: user ? user.name : "Client",
+        // Si Privy n'a pas encore généré de wallet, on montre une adresse stylée pour le design
+        walletAddress: user?.cryptoWalletAddress || "0x71C...3a92", 
+        balances: {
+            usdc: 1250.50,  // Stablecoin adossé au dollar
+            eurc: 850.00,   // Stablecoin adossé à l'euro
+            eth: 0.42       // Ethereum
+        },
+        transactions: [
+            { id: "1", type: "Received", amount: "+250 USDC", date: "Aujourd'hui", from: "0xAb58...ef45" },
+            { id: "2", type: "Sent", amount: "-15 EURC", date: "Hier", to: "Starbucks Web3" }
+        ]
+    });
 });
 
-// ─── API : ISSUE CARD
-app.post('/api/issuing/cards', authenticateToken, async (req, res) => {
-    try {
-        const { cardholderName } = req.body;
-
-        const cardholder = await stripe.issuing.cardholders.create({
-            name: cardholderName || req.user.companyName,
-            email: req.user.email,
-            status: 'active',
-            type: 'individual',
-        }, { stripeAccount: req.user.stripeAccountId });
-
-        const card = await stripe.issuing.cards.create({
-            cardholder: cardholder.id,
-            currency: 'eur',
-            type: 'virtual',
-            status: 'active',
-        }, { stripeAccount: req.user.stripeAccountId });
-
-        res.json({
-            name: cardholderName || req.user.companyName,
-            number: card.last4,
-            exp: `${card.exp_month}/${card.exp_year}`
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Port dynamique Render
+// Lancement du serveur
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`⚡ Serveur NorPay en ligne sur le port ${PORT}`);
+});

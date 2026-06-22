@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// ROUTE MOONPAY VIA PRIVY (NETTOYÉE ET STABLE)
+// ROUTE D'ACHAT DIRECT MOONPAY (FIABLE & PRO)
 // ==========================================
 app.post('/api/onramp-session', async (req, res) => {
     const { walletAddress } = req.body;
@@ -17,14 +17,11 @@ app.post('/api/onramp-session', async (req, res) => {
     }
 
     try {
-        // ID de ton application Privy
-        const privyAppId = "cmqollwmd000s0cky0evrjnkd";
-
-        // Lien officiel que Privy utilise pour charger le widget MoonPay configuré sur ton compte
-        const checkoutUrl = `https://onramp.privy.io/?appId=${privyAppId}&address=${walletAddress}&network=base&asset=usdc`;
+        // Lien officiel MoonPay pré-configuré pour l'USDC sur le réseau Base
+        // L'adresse de l'utilisateur est injectée dynamiquement
+        const moonPayUrl = `https://buy.moonpay.com/?currencyCode=usdc_base&walletAddress=${walletAddress}`;
         
-        // On renvoie l'URL propre à l'application iOS
-        res.json({ url: checkoutUrl });
+        res.json({ url: moonPayUrl });
 
     } catch (error) {
         console.error("Erreur Onramp:", error);
@@ -33,7 +30,7 @@ app.post('/api/onramp-session', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send("🚀 Serveur NorPay actif et opérationnel pour MoonPay.");
+    res.send("🚀 Serveur NorPay actif et opérationnel pour MoonPay direct.");
 });
 
 const PORT = process.env.PORT || 10000;

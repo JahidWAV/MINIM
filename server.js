@@ -5,8 +5,8 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-require('dotenv').config(); 
-const { Coinbase } = require('@coinbase/coinbase-sdk');
+require('dotenv').config(); // Charge les variables du fichier .env en local
+const { Coinbase, OnrampSession } = require('@coinbase/coinbase-sdk'); // 🌟 Ajout de l'import OnrampSession
 
 const app = express();
 
@@ -14,14 +14,14 @@ const app = express();
 // MIDDLEWARES
 // ==========================================
 app.use(cors());
-app.use(express.json()); 
+app.use(express.json()); // Indispensable pour lire le JSON (comme l'adresse wallet de l'iPhone)
 
 // ==========================================
 // CONFIGURATION DE L'API COINBASE CDP
 // ==========================================
 Coinbase.configure({
     apiKeyName: process.env.COINBASE_API_KEY_NAME, 
-    privateKey: process.env.COINBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') 
+    privateKey: process.env.COINBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') // Nettoie les sauts de ligne de Render
 });
 
 // ==========================================
@@ -35,17 +35,19 @@ app.post('/api/onramp-session', async (req, res) => {
     }
 
     try {
-        const onrampSession = await Coinbase.createOnrampSession({
-            appId: "5eae5cc1-0d44-47a7-8618-e221191c852a", 
+        // 🌟 SYNTAXE OFFICIELLE CORRIGÉE : On appelle OnrampSession.create directement
+        const onrampSession = await OnrampSession.create({
+            appId: "5eae5cc1-0d44-47a7-8618-e221191c852a", // Ton Project ID Coinbase Onramp
             destinationWallets: [
                 {
                     address: walletAddress,
-                    blockchains: ["base"] 
+                    blockchains: ["base"] // Réseau Base
                 }
             ],
-            assets: ["USDC"] 
+            assets: ["USDC"] // Devise d'achat forcée
         });
 
+        // Renvoie l'URL unique signée par Coinbase à ton application iOS NoPay
         res.json({ url: onrampSession.getUrl() });
         
     } catch (error) {
@@ -54,6 +56,9 @@ app.post('/api/onramp-session', async (req, res) => {
     }
 });
 
+// ==========================================
+// LOGIQUE COMPLEMENTAIRE (Exemple d'accueil)
+// ==========================================
 app.get('/', (req, res) => {
     res.send("🚀 Serveur NorPay actif et opérationnel.");
 });

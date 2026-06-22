@@ -1,13 +1,3 @@
-// 🛠️ SÉCURITÉ ANTI-CACHE RENDER : Force l'installation si le module est introuvable
-try {
-    require.resolve('@coinbase/coinbase-sdk');
-} catch (e) {
-    console.log("⚠️ Module @coinbase/coinbase-sdk introuvable. Installation forcée...");
-    const execSync = require('child_process').execSync;
-    execSync('npm install @coinbase/coinbase-sdk', { stdio: 'inherit' });
-    console.log("✅ Module @coinbase/coinbase-sdk installé avec succès !");
-}
-
 // ==========================================
 // IMPORTS DES MODULES
 // ==========================================

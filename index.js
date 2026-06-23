@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialisation Turnkey avec les variables d'environnement
+// 1. Initialisation standard du SDK
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
@@ -22,18 +22,15 @@ const client = new TurnkeyClient(
 
 const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
 
-// Route de test pour s'assurer que le serveur répond
 app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
 
-// ROUTE : ENVOI DE L'OTP VIA VERCEL + RESEND
+// ROUTE : ENVOI DE L'OTP
 app.post('/api/send-otp', async (req, res) => {
     try {
         const { email, code } = req.body;
         if (!email || !code) return res.status(400).json({ error: "Email and code are required." });
-
-        console.log(`[Vercel] Sending OTP to ${email}`);
 
         const response = await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -56,28 +53,22 @@ app.post('/api/send-otp', async (req, res) => {
 
         return res.status(200).json({ success: true });
     } catch (error) {
-        console.error("[Vercel] Resend Error:", error.message);
         return res.status(500).json({ error: "Failed to send email via Resend.", details: error.message });
     }
 });
 
-// 🌟 ROUTE CORRIGÉE : TYPE ET TIMESTAMPMS PASSÉS EXPLICITEMENT
+// 🌟 LA ROUTE OFFICIELLE DU SDK (SANS BIDOUILLAGE DE PAYLOAD)
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Requesting wallet via request layer with explicit timestamp for: ${email}`);
+        console.log(`[Vercel] Creating wallet via official method for: ${email}`);
 
-        // 🌟 Turnkey exige le timestamp actuel sous forme de string en millisecondes
-        const currentTimestampMs = Date.now().toString();
-
-        const response = await client.request(
-            "/public/v1/submit/create_sub_organization",
-            {
+        // L'astuce du SDK : Tout doit être dans l'objet "body" pour qu'il calcule le Type et le TimestampMs automatiquement
+        const response = await client.createSubOrganization({
+            body: {
                 organizationId: parentOrgId,
-                type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
-                timestampMs: currentTimestampMs, // 🌟 AJOUT CRUCIAL : Répare l'erreur strconv.ParseInt
                 parameters: {
                     subOrganizationName: `NoPay-${email}`,
                     rootUsers: [{
@@ -96,17 +87,19 @@ app.post('/api/create-wallet', async (req, res) => {
                     }
                 }
             }
-        );
+        });
 
-        const walletAddress = response.activity.result.createSubOrganizationResult.walletAddresses[0];
-        console.log(`[Vercel] Successfully generated: ${walletAddress}`);
+        // Lecture propre du dictionnaire de réponse du SDK
+        const walletAddress = response.createSubOrganizationResult.walletAddresses[0];
+        console.log(`[Vercel] Wallet created successfully: ${walletAddress}`);
+        
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey Request Explicit Error Details:", error);
+        console.error("[Vercel] Turnkey SDK Error:", error);
         return res.status(500).json({ 
             error: "Turnkey SDK execution failed.", 
-            message: error.message || "Unknown Turnkey error",
+            message: error.message,
             details: error
         });
     }

@@ -27,7 +27,7 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
 
-// 🌟 ROUTE : ENVOI DE L'OTP VIA VERCEL + RESEND
+// 🌟 ROUTE CORRIGÉE : ENVOI DE L'OTP AVEC LA BONNE INTERPOLATION ${code}
 app.post('/api/send-otp', async (req, res) => {
     try {
         const { email, code } = req.body;
@@ -45,7 +45,7 @@ app.post('/api/send-otp', async (req, res) => {
                 from: "NoPay App <onboarding@resend.dev>",
                 to: [email.toLowerCase()],
                 subject: "Your NoPay Verification Code",
-                html: `<div style='font-family:sans-serif;padding:20px;'><h3>Your access code: <strong>\(code)</strong></h3></div>`
+                html: `<div style='font-family:sans-serif;padding:20px;'><h3>Your access code: <strong>${code}</strong></h3></div>`
             })
         });
 
@@ -61,7 +61,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE AVEC DEBUG AMÉLIORÉ : CRÉATION DU WALLET
+// ROUTE AVEC DEBUG AMÉLIORÉ : CRÉATION DU WALLET
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -95,10 +95,7 @@ app.post('/api/create-wallet', async (req, res) => {
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        // Capture l'erreur complète dans les logs Vercel
         console.error("[Vercel] Turnkey SDK Error Details:", error);
-        
-        // Renvoie l'erreur détaillée à l'iPhone pour l'afficher dans la console Xcode
         return res.status(500).json({ 
             error: "Turnkey SDK execution failed.", 
             message: error.message || "Unknown Turnkey error",

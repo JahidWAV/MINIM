@@ -20,16 +20,13 @@ const turnkeyClient = new TurnkeyClient(
     stamper
 );
 
-// Utilisation du client typé officiel pour éviter les bugs d'URLs générées
-const typedClient = turnkeyClient.getTypedClient();
-
 const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
 
 app.get('/', (req, res) => {
     res.status(200).send('NoPay Backend Operational with Turnkey Email OTP Infrastructure.');
 });
 
-// 🌟 ROUTE A : ENVOYER LE CODE OTP VIA LE TYPED CLIENT
+// 🌟 ROUTE A : ENVOYER LE CODE OTP VIA .REQUEST (CHEMIN RELATIF)
 app.post('/api/otp-send', async (req, res) => {
     try {
         const { email } = req.body;
@@ -37,11 +34,14 @@ app.post('/api/otp-send', async (req, res) => {
 
         console.log(`[Turnkey OTP] Requesting magic code for: ${email}`);
         
-        // Appel natif et propre
-        await typedClient.initUserEmailAuth({
-            organizationId: parentOrgId,
-            email: email,
-            targetType: "TARGET_TYPE_SUB_ORGANIZATION"
+        // On passe uniquement la méthode de l'action dans l'URL, le SDK fait le reste
+        await turnkeyClient.request({
+            body: {
+                organizationId: parentOrgId,
+                email: email,
+                targetType: "TARGET_TYPE_SUB_ORGANIZATION"
+            },
+            url: "/public/v1/submit/init_user_email_auth"
         });
 
         return res.status(200).json({ success: true, message: "Magic code dispatched." });
@@ -51,7 +51,7 @@ app.post('/api/otp-send', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET VIA LE TYPED CLIENT
+// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET BASE
 app.post('/api/otp-verify', async (req, res) => {
     try {
         const { email, otpCode } = req.body;
@@ -59,24 +59,26 @@ app.post('/api/otp-verify', async (req, res) => {
 
         console.log(`[Turnkey OTP] Verifying code for ${email}...`);
 
-        // Création de la sous-organisation
-        const activityResponse = await typedClient.createSubOrganization({
-            organizationId: parentOrgId,
-            subOrganizationName: `NoPay-${email}`,
-            rootUsers: [{
-                userName: email,
-                userEmail: email,
-                apiKeys: [],
-                authenticators: []
-            }],
-            wallet: {
-                walletName: "Default NoPay Wallet",
-                accounts: [{
-                    curve: "CURVE_SECP256K1",
-                    pathFormat: "PATH_FORMAT_BIP44",
-                    path: "m/44'/60'/0'/0/0" 
-                }]
-            }
+        const activityResponse = await turnkeyClient.request({
+            body: {
+                organizationId: parentOrgId,
+                subOrganizationName: `NoPay-${email}`,
+                rootUsers: [{
+                    userName: email,
+                    userEmail: email,
+                    apiKeys: [],
+                    authenticators: []
+                }],
+                wallet: {
+                    walletName: "Default NoPay Wallet",
+                    accounts: [{
+                        curve: "CURVE_SECP256K1",
+                        pathFormat: "PATH_FORMAT_BIP44",
+                        path: "m/44'/60'/0'/0/0" 
+                    }]
+                }
+            },
+            url: "/public/v1/submit/create_sub_organization"
         });
 
         const walletAddress = activityResponse.activity.result.createSubOrganizationResult.walletAddresses[0];

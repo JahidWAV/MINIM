@@ -50,7 +50,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET AVEC EN-TÊTE CORRIGÉ
+// ROUTE : CRÉATION DU WALLET
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -84,11 +84,11 @@ app.post('/api/create-wallet', async (req, res) => {
         const stringifiedPayload = JSON.stringify(activityPayload);
         const stamp = await stamper.stamp(stringifiedPayload);
 
-        // 🌟 CORRECTION DEFINITIVE : Le stamper produit une signature que l'on transforme en Base64 pour l'en-tête X-Stamp
+        // 🌟 RECTIFICATION DE L'ENUM : SIGNING_SCHEME_API_KEY
         const stampObj = {
             publicKey: stamp.publicKey,
             signature: stamp.signature,
-            scheme: "SIGNING_SCHEME_TK_API_KEY"
+            scheme: "SIGNING_SCHEME_API_KEY"
         };
         const base64Stamp = Buffer.from(JSON.stringify(stampObj)).toString("base64");
 
@@ -96,7 +96,7 @@ app.post('/api/create-wallet', async (req, res) => {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-Stamp": base64Stamp // 🌟 ICI : Converti en Base64 valide, fini l'erreur "illegal base64 data"
+                "X-Stamp": base64Stamp
             },
             body: stringifiedPayload
         });

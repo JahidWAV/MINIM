@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialisation Turnkey
+// Initialisation Turnkey avec les variables d'environnement
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
@@ -22,11 +22,12 @@ const client = new TurnkeyClient(
 
 const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
 
+// Route de test pour s'assurer que le serveur répond
 app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
 
-// 🌟 NOUVELLE ROUTE : ENVOI DE L'OTP VIA VERCEL + RESEND
+// 🌟 ROUTE : ENVOI DE L'OTP VIA VERCEL + RESEND
 app.post('/api/send-otp', async (req, res) => {
     try {
         const { email, code } = req.body;
@@ -44,7 +45,7 @@ app.post('/api/send-otp', async (req, res) => {
                 from: "NoPay App <onboarding@resend.dev>",
                 to: [email.toLowerCase()],
                 subject: "Your NoPay Verification Code",
-                html: `<div style='font-family:sans-serif;padding:20px;'><h3>Your access code: <strong>${code}</strong></h3></div>`
+                html: `<div style='font-family:sans-serif;padding:20px;'><h3>Your access code: <strong>\(code)</strong></h3></div>`
             })
         });
 
@@ -60,7 +61,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE EXISTANTE : CRÉATION DU WALLET
+// 🌟 ROUTE AVEC DEBUG AMÉLIORÉ : CRÉATION DU WALLET
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -90,11 +91,19 @@ app.post('/api/create-wallet', async (req, res) => {
         });
 
         const walletAddress = response.createSubOrganizationResult.walletAddresses[0];
+        console.log(`[Vercel] Successfully generated: ${walletAddress}`);
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey SDK Error:", error);
-        return res.status(500).json({ error: "Turnkey SDK execution failed.", details: error.message });
+        // Capture l'erreur complète dans les logs Vercel
+        console.error("[Vercel] Turnkey SDK Error Details:", error);
+        
+        // Renvoie l'erreur détaillée à l'iPhone pour l'afficher dans la console Xcode
+        return res.status(500).json({ 
+            error: "Turnkey SDK execution failed.", 
+            message: error.message || "Unknown Turnkey error",
+            details: error
+        });
     }
 });
 

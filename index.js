@@ -8,7 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. On garde uniquement le stamper pour la signature crypto
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
@@ -20,7 +19,7 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
 
-// ROUTE : ENVOI DE L'OTP VIA RESEND
+// ROUTE : ENVOI DE L'OTP
 app.post('/api/send-otp', async (req, res) => {
     try {
         const { email, code } = req.body;
@@ -51,7 +50,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE EN DIRECT VIA FETCH (ZÉRO COMPOSANT METIER TURNKEY SDK)
+// ROUTE : CRÉATION DU WALLET AVEC LE BON EN-TÊTE X-STAMP
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -59,7 +58,6 @@ app.post('/api/create-wallet', async (req, res) => {
 
         console.log(`[Vercel] Hardcore POST request to Turnkey API for: ${email}`);
 
-        // On construit la payload au millimètre près en forçant TOUS les champs requis
         const activityPayload = {
             organizationId: parentOrgId,
             type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
@@ -84,17 +82,18 @@ app.post('/api/create-wallet', async (req, res) => {
         };
 
         const stringifiedPayload = JSON.stringify(activityPayload);
-
-        // On demande au stamper de signer manuellement notre chaîne brute
         const stamp = await stamper.stamp(stringifiedPayload);
 
-        // On envoie la requête nous-mêmes par HTTP
+        // 🌟 CORRECTION : Utilisation de l'en-tête officiel de Turnkey "X-Stamp" combinant publicKey et signature en JSON
         const response = await fetch("https://api.turnkey.com/public/v1/submit/create_sub_organization", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-Stamp-X509-PublicKey": stamp.publicKey,
-                "X-Stamp-Signature": stamp.signature
+                "X-Stamp": JSON.stringify({
+                    publicKey: stamp.publicKey,
+                    signature: stamp.signature,
+                    scheme: "SIGNING_SCHEME_TK_API_KEY"
+                })
             },
             body: stringifiedPayload
         });
@@ -105,7 +104,6 @@ app.post('/api/create-wallet', async (req, res) => {
             throw new Error(JSON.stringify(resData));
         }
 
-        // Extraction de l'adresse depuis la réponse brute de l'API REST
         const walletAddress = resData.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Vercel] Wallet successfully forced: ${walletAddress}`);
         

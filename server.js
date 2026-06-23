@@ -1,4 +1,27 @@
-// 🌟 LA ROUTE CORRIGÉE : INJECTE PARFAITEMENT LE TIMESTAMP DE TURNKEY
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { ApiKeyStamper } = require("@turnkey/api-key-stamper");
+
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+app.use(cors());
+app.use(express.json());
+
+// Initialisation du tampon de signature parent Turnkey
+const stamper = new ApiKeyStamper({
+    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
+    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
+});
+
+const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
+
+app.get('/', (req, res) => {
+    res.status(200).send('NoPay Secure Wallet Factory Online.');
+});
+
+// 🌟 LA ROUTE CORRIGÉE : REÇOIT L'EMAIL ET INJECTE TOUS LES HEADERS REQUIS PAR TURNKEY
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -22,14 +45,14 @@ app.post('/api/create-wallet', async (req, res) => {
                     accounts: [{
                         curve: "CURVE_SECP256K1",
                         pathFormat: "PATH_FORMAT_BIP44",
-                        path: "m/44'/60'/0'/0/0" // Réseau Base
+                        path: "m/44'/60'/0'/0/0" // Réseau Base / EVM standard
                     }]
                 }
             },
             type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION"
         });
 
-        // 🌟 L'élément clé : On récupère la signature complète
+        // Génération de la signature et des en-têtes (incluant l'activity timestamp !)
         const signature = await stamper.stamp({ method: "POST", url, body: bodyPayload });
 
         const response = await fetch(url, {
@@ -38,8 +61,7 @@ app.post('/api/create-wallet', async (req, res) => {
                 "Content-Type": "application/json",
                 "X-XKey": signature.publicKey,
                 "X-Signature": signature.signature,
-                // 🌟 ICI : On transmet les headers additionnels (dont l'activity timestamp !) générés par le stamper
-                ...signature.headers 
+                ...signature.headers // 🌟 Injecte automatiquement les en-têtes temporels manquants
             },
             body: bodyPayload
         });
@@ -59,3 +81,5 @@ app.post('/api/create-wallet', async (req, res) => {
         return res.status(500).json({ error: "Turnkey wallet allocation failed." });
     }
 });
+
+app.listen(PORT, () => console.log(`[NoPay Server] Running on port ${PORT}`));

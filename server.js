@@ -20,7 +20,7 @@ app.get('/', (req, res) => {
     res.status(200).send('NoPay Secure Wallet Factory Online.');
 });
 
-// 🌟 LA ROUTE FINALE CORRIGÉE : INJECTE MANUELLEMENT LE TIMESTAMP REQUIS
+// 🌟 LA ROUTE DÉFINITIVE AVEC LA PAYLOAD CORRIGÉE POUR TURNKEY
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -30,11 +30,14 @@ app.post('/api/create-wallet', async (req, res) => {
 
         const url = "https://api.turnkey.com/public/v1/submit/create_sub_organization";
         
-        // 🌟 Calcul du timestamp actuel requis par Turnkey
-        const currentTimestamp = Date.now().toString();
+        // Turnkey exige impérativement le timestamp actuel en millisecondes sous forme de String
+        const currentTimestampMs = Date.now().toString();
 
+        // 🌟 RESTRUCTURATION STRICTE DE LA PAYLOAD SELON LES SPECS GO DE TURNKEY
         const bodyPayload = JSON.stringify({
             organizationId: parentOrgId,
+            timestampMs: currentTimestampMs, // 🌟 Placé ici au premier niveau avec le nom EXACT attendu
+            type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
             parameters: {
                 subOrganizationName: `NoPay-${email}`,
                 rootUsers: [{
@@ -51,12 +54,10 @@ app.post('/api/create-wallet', async (req, res) => {
                         path: "m/44'/60'/0'/0/0"
                     }]
                 }
-            },
-            timestamp: currentTimestamp, // 🌟 Injecté dans la payload si besoin
-            type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION"
+            }
         });
 
-        // Génération de la signature
+        // Signature du corps parfait
         const signature = await stamper.stamp({ method: "POST", url, body: bodyPayload });
 
         const response = await fetch(url, {
@@ -65,9 +66,7 @@ app.post('/api/create-wallet', async (req, res) => {
                 "Content-Type": "application/json",
                 "X-XKey": signature.publicKey,
                 "X-Signature": signature.signature,
-                "X-Timestamp": currentTimestamp,            // 🌟 Variante 1 d'en-tête
-                "X-Stamp-Timestamp": currentTimestamp,      // 🌟 Variante 2 d'en-tête (Turnkey standard)
-                ...signature.headers                        // Reste des headers du stamper
+                ...signature.headers // Contient aussi l'en-tête généré par Turnkey
             },
             body: bodyPayload
         });

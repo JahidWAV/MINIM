@@ -9,7 +9,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. Initialisation standard du SDK
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
@@ -57,46 +56,44 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// 🌟 LA ROUTE OFFICIELLE DU SDK (SANS BIDOUILLAGE DE PAYLOAD)
+// 🌟 LA ROUTE CORRIGÉE : STRUCTURE EXACTE COMPATIBLE SANS ERREUR DE TYPE
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Creating wallet via official method for: ${email}`);
+        console.log(`[Vercel] Creating wallet via Turnkey Core API for: ${email}`);
 
-        // L'astuce du SDK : Tout doit être dans l'objet "body" pour qu'il calcule le Type et le TimestampMs automatiquement
+        // La signature universelle de Turnkey passe par l'appel direct de l'endpoint d'activité
         const response = await client.createSubOrganization({
-            body: {
-                organizationId: parentOrgId,
-                parameters: {
-                    subOrganizationName: `NoPay-${email}`,
-                    rootUsers: [{
-                        userName: email,
-                        userEmail: email,
-                        apiKeys: [],
-                        authenticators: []
-                    }],
-                    wallet: {
-                        walletName: "Default NoPay Wallet",
-                        accounts: [{
-                            curve: "CURVE_SECP256K1",
-                            pathFormat: "PATH_FORMAT_BIP44",
-                            path: "m/44'/60'/0'/0/0"
-                        }]
-                    }
+            organizationId: parentOrgId,
+            parameters: {
+                subOrganizationName: `NoPay-${email}`,
+                rootUsers: [{
+                    userName: email,
+                    userEmail: email,
+                    apiKeys: [],
+                    authenticators: []
+                }],
+                wallet: {
+                    walletName: "Default NoPay Wallet",
+                    accounts: [{
+                        curve: "CURVE_SECP256K1",
+                        pathFormat: "PATH_FORMAT_BIP44",
+                        path: "m/44'/60'/0'/0/0"
+                    }]
                 }
             }
         });
 
-        // Lecture propre du dictionnaire de réponse du SDK
-        const walletAddress = response.createSubOrganizationResult.walletAddresses[0];
+        // Lecture sécurisée du schéma d'activité standard
+        const walletAddress = response.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Vercel] Wallet created successfully: ${walletAddress}`);
         
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey SDK Error:", error);
+        console.error("[Vercel] Turnkey Root Error:", error);
         return res.status(500).json({ 
             error: "Turnkey SDK execution failed.", 
             message: error.message,

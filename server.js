@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
     res.status(200).send('NoPay Backend Operational with Turnkey Email OTP Infrastructure.');
 });
 
-// 🌟 ROUTE A : ENVOYER LE CODE OTP PAR EMAIL VIA TURNKEY
+// 🌟 ROUTE A : ENVOYER LE CODE OTP PAR EMAIL VIA TURNKEY (SYNTAXE RECTIFIÉE)
 app.post('/api/otp-send', async (req, res) => {
     try {
         const { email } = req.body;
@@ -34,11 +34,11 @@ app.post('/api/otp-send', async (req, res) => {
 
         console.log(`[Turnkey OTP] Requesting magic code for: ${email}`);
         
-        // Commande native Turnkey pour envoyer un code de vérification par e-mail
-        await turnkeyClient.initUserEmailAuth({
+        // Correction de l'appel pour utiliser la méthode standard d'authentification email
+        await turnkeyClient.api.initUserEmailAuth({
             organizationId: parentOrgId,
             email: email,
-            targetTargetType: "TARGET_TYPE_SUB_ORGANIZATION"
+            targetType: "TARGET_TYPE_SUB_ORGANIZATION"
         });
 
         return res.status(200).json({ success: true, message: "Magic code dispatched." });
@@ -56,8 +56,8 @@ app.post('/api/otp-verify', async (req, res) => {
 
         console.log(`[Turnkey OTP] Verifying code for ${email}...`);
 
-        // 1. Validation du code et création de la sous-organisation utilisateur avec portefeuille crypto natif Base
-        const activityResponse = await turnkeyClient.createSubOrganization({
+        // Appel direct via .api pour la création de la sous-organisation
+        const activityResponse = await turnkeyClient.api.createSubOrganization({
             organizationId: parentOrgId,
             subOrganizationName: `NoPay-${email}`,
             rootUsers: [{
@@ -66,7 +66,6 @@ app.post('/api/otp-verify', async (req, res) => {
                 apiKeys: [],
                 authenticators: []
             }],
-            // Demande d'un portefeuille standard (EOA) dérivé sur le réseau Base
             wallet: {
                 walletName: "Default NoPay Wallet",
                 accounts: [{
@@ -77,7 +76,6 @@ app.post('/api/otp-verify', async (req, res) => {
             }
         });
 
-        // 2. Extraction instantanée de l'adresse de production
         const walletAddress = activityResponse.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Turnkey OTP] Verified! Created wallet: ${walletAddress}`);
 
@@ -99,7 +97,7 @@ app.post('/api/transak-session', async (req, res) => {
         const defaultCrypto = (fiatCurrency === 'EUR') ? 'EURC' : 'USDC';
 
         const params = new URLSearchParams({
-            apiKey: process.env.TRANSAK_API_KEY || 'METS_TA_CLE_TRANSAK_ICI',
+            apiKey: process.env.TRANSAK_API_KEY || '',
             walletAddress: walletAddress,
             email: userEmail || '',
             network: 'base',

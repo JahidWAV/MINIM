@@ -61,20 +61,23 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE ENFIN FIXÉE AVEC LA BONNE SIGNATURE DE .REQUEST()
+// 🌟 ROUTE CORRIGÉE : TYPE ET TIMESTAMPMS PASSÉS EXPLICITEMENT
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Requesting wallet via exact SDK request signature for: ${email}`);
+        console.log(`[Vercel] Requesting wallet via request layer with explicit timestamp for: ${email}`);
 
-        // 🌟 CORRECTION CRUCIALE : On passe d'abord l'URI en string, puis l'objet de payload ensuite
+        // 🌟 Turnkey exige le timestamp actuel sous forme de string en millisecondes
+        const currentTimestampMs = Date.now().toString();
+
         const response = await client.request(
             "/public/v1/submit/create_sub_organization",
             {
                 organizationId: parentOrgId,
                 type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
+                timestampMs: currentTimestampMs, // 🌟 AJOUT CRUCIAL : Répare l'erreur strconv.ParseInt
                 parameters: {
                     subOrganizationName: `NoPay-${email}`,
                     rootUsers: [{
@@ -95,13 +98,12 @@ app.post('/api/create-wallet', async (req, res) => {
             }
         );
 
-        // Lecture de l'activité retournée par le SDK
         const walletAddress = response.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Vercel] Successfully generated: ${walletAddress}`);
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey Request Payload Error Details:", error);
+        console.error("[Vercel] Turnkey Request Explicit Error Details:", error);
         return res.status(500).json({ 
             error: "Turnkey SDK execution failed.", 
             message: error.message || "Unknown Turnkey error",

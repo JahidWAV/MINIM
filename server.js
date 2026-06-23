@@ -9,19 +9,19 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-// Initialisation du Stamper pour signer cryptographiquement nos requêtes HTTP brutes
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
 });
 
 const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
+const TURNKEY_SUBMIT_URL = "https://api.turnkey.com/public/v1/submit";
 
 app.get('/', (req, res) => {
     res.status(200).send('NoPay Backend Operational with Native Turnkey Bridge.');
 });
 
-// 🌟 ROUTE A : ENVOYER LE CODE OTP (VIA REQUÊTE DIRECTE SIGNÉE)
+// 🌟 ROUTE A : ENVOYER LE CODE OTP (VIA ACTIVITY TYPE CONFIGURATION)
 app.post('/api/otp-send', async (req, res) => {
     try {
         const { email } = req.body;
@@ -29,22 +29,23 @@ app.post('/api/otp-send', async (req, res) => {
 
         console.log(`[Turnkey OTP] Requesting magic code for: ${email}`);
         
-        const url = "https://api.turnkey.com/public/v1/submit/init_user_email_auth";
+        // Structure d'activité unifiée exigée par l'endpoint /submit de Turnkey
         const bodyPayload = JSON.stringify({
             organizationId: parentOrgId,
-            email: email,
-            targetType: "TARGET_TYPE_SUB_ORGANIZATION"
+            parameters: {
+                email: email,
+                targetType: "TARGET_TYPE_SUB_ORGANIZATION"
+            },
+            type: "ACTIVITY_TYPE_INIT_USER_EMAIL_AUTH" // Le type d'activité définit l'action
         });
 
-        // Le Stamper de Turnkey signe la payload pour prouver que la requête vient de ton backend
         const signature = await stamper.stamp({
             method: "POST",
-            url: url,
+            url: TURNKEY_SUBMIT_URL,
             body: bodyPayload
         });
 
-        // Envoi direct par le protocole HTTP natif
-        const response = await fetch(url, {
+        const response = await fetch(TURNKEY_SUBMIT_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -66,7 +67,7 @@ app.post('/api/otp-send', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET BASE (VIA REQUÊTE DIRECTE SIGNÉE)
+// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET BASE (VIA ACTIVITY TYPE CONFIGURATION)
 app.post('/api/otp-verify', async (req, res) => {
     try {
         const { email, otpCode } = req.body;
@@ -74,33 +75,35 @@ app.post('/api/otp-verify', async (req, res) => {
 
         console.log(`[Turnkey OTP] Verifying code for ${email}...`);
 
-        const url = "https://api.turnkey.com/public/v1/submit/create_sub_organization";
         const bodyPayload = JSON.stringify({
             organizationId: parentOrgId,
-            subOrganizationName: `NoPay-${email}`,
-            rootUsers: [{
-                userName: email,
-                userEmail: email,
-                apiKeys: [],
-                authenticators: []
-            }],
-            wallet: {
-                walletName: "Default NoPay Wallet",
-                accounts: [{
-                    curve: "CURVE_SECP256K1",
-                    pathFormat: "PATH_FORMAT_BIP44",
-                    path: "m/44'/60'/0'/0/0" 
-                }]
-            }
+            parameters: {
+                subOrganizationName: `NoPay-${email}`,
+                rootUsers: [{
+                    userName: email,
+                    userEmail: email,
+                    apiKeys: [],
+                    authenticators: []
+                }],
+                wallet: {
+                    walletName: "Default NoPay Wallet",
+                    accounts: [{
+                        curve: "CURVE_SECP256K1",
+                        pathFormat: "PATH_FORMAT_BIP44",
+                        path: "m/44'/60'/0'/0/0" 
+                    }]
+                }
+            },
+            type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION" // Type d'activité pour instancier la sous-organisation
         });
 
         const signature = await stamper.stamp({
             method: "POST",
-            url: url,
+            url: TURNKEY_SUBMIT_URL,
             body: bodyPayload
         });
 
-        const response = await fetch(url, {
+        const response = await fetch(TURNKEY_SUBMIT_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -116,6 +119,7 @@ app.post('/api/otp-verify', async (req, res) => {
             throw new Error(`Turnkey verification failure: ${JSON.stringify(responseData)}`);
         }
 
+        // Extraction de l'adresse depuis la structure de l'activité validée
         const walletAddress = responseData.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Turnkey OTP] Verified! Created wallet: ${walletAddress}`);
 
@@ -153,4 +157,4 @@ app.post('/api/transak-session', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`[NoPay Server] Turnkey Native Bridge listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`[NoPay Server] Turnkey Native Route listening on port ${PORT}`));

@@ -27,7 +27,7 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
 
-// 🌟 ROUTE CORRIGÉE : ENVOI DE L'OTP AVEC LA BONNE INTERPOLATION ${code}
+// ROUTE : ENVOI DE L'OTP VIA VERCEL + RESEND
 app.post('/api/send-otp', async (req, res) => {
     try {
         const { email, code } = req.body;
@@ -61,41 +61,47 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE AVEC DEBUG AMÉLIORÉ : CRÉATION DU WALLET
+// 🌟 ROUTE CORRIGÉE : APPEL VIA CLIENT.INVOKE POUR FORCER LE TYPE D'ACTIVITÉ
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Requesting wallet via SDK for: ${email}`);
+        console.log(`[Vercel] Requesting wallet via core invoke layer for: ${email}`);
 
-        const response = await client.createSubOrganization({
-            organizationId: parentOrgId,
-            parameters: {
-                subOrganizationName: `NoPay-${email}`,
-                rootUsers: [{
-                    userName: email,
-                    userEmail: email,
-                    apiKeys: [],
-                    authenticators: []
-                }],
-                wallet: {
-                    walletName: "Default NoPay Wallet",
-                    accounts: [{
-                        curve: "CURVE_SECP256K1",
-                        pathFormat: "PATH_FORMAT_BIP44",
-                        path: "m/44'/60'/0'/0/0"
-                    }]
+        // 🌟 Utilisation de invoke() pour mapper manuellement l'endpoint et le type d'activité exact
+        const response = await client.invoke({
+            uri: "/public/v1/submit/create_sub_organization",
+            payload: {
+                organizationId: parentOrgId,
+                type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION", // 🌟 Impératif pour corriger l'erreur de type ("")
+                parameters: {
+                    subOrganizationName: `NoPay-${email}`,
+                    rootUsers: [{
+                        userName: email,
+                        userEmail: email,
+                        apiKeys: [],
+                        authenticators: []
+                    }],
+                    wallet: {
+                        walletName: "Default NoPay Wallet",
+                        accounts: [{
+                            curve: "CURVE_SECP256K1",
+                            pathFormat: "PATH_FORMAT_BIP44",
+                            path: "m/44'/60'/0'/0/0"
+                        }]
+                    }
                 }
             }
         });
 
-        const walletAddress = response.createSubOrganizationResult.walletAddresses[0];
+        // Extraction de l'adresse générée via la structure d'activité de la réponse brute
+        const walletAddress = response.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Vercel] Successfully generated: ${walletAddress}`);
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey SDK Error Details:", error);
+        console.error("[Vercel] Turnkey Invoke Core Error Details:", error);
         return res.status(500).json({ 
             error: "Turnkey SDK execution failed.", 
             message: error.message || "Unknown Turnkey error",

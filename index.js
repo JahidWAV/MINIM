@@ -61,20 +61,20 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE CORRIGÉE : APPEL VIA CLIENT.INVOKE POUR FORCER LE TYPE D'ACTIVITÉ
+// 🌟 ROUTE CORRIGÉE : RECOURS À CLIENT.REQUEST()
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Requesting wallet via core invoke layer for: ${email}`);
+        console.log(`[Vercel] Requesting wallet via native request layer for: ${email}`);
 
-        // 🌟 Utilisation de invoke() pour mapper manuellement l'endpoint et le type d'activité exact
-        const response = await client.invoke({
+        // 🌟 Remplacement par .request() qui est la vraie méthode native du SDK
+        const response = await client.request({
             uri: "/public/v1/submit/create_sub_organization",
             payload: {
                 organizationId: parentOrgId,
-                type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION", // 🌟 Impératif pour corriger l'erreur de type ("")
+                type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
                 parameters: {
                     subOrganizationName: `NoPay-${email}`,
                     rootUsers: [{
@@ -95,13 +95,13 @@ app.post('/api/create-wallet', async (req, res) => {
             }
         });
 
-        // Extraction de l'adresse générée via la structure d'activité de la réponse brute
+        // Lecture du résultat de la réponse brute décodée par le SDK
         const walletAddress = response.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Vercel] Successfully generated: ${walletAddress}`);
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey Invoke Core Error Details:", error);
+        console.error("[Vercel] Turnkey Request Core Error Details:", error);
         return res.status(500).json({ 
             error: "Turnkey SDK execution failed.", 
             message: error.message || "Unknown Turnkey error",

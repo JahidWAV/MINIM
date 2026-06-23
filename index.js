@@ -50,7 +50,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET AVEC LE BON EN-TÊTE X-STAMP
+// ROUTE : CRÉATION DU WALLET AVEC EN-TÊTE CORRIGÉ
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -84,16 +84,19 @@ app.post('/api/create-wallet', async (req, res) => {
         const stringifiedPayload = JSON.stringify(activityPayload);
         const stamp = await stamper.stamp(stringifiedPayload);
 
-        // 🌟 CORRECTION : Utilisation de l'en-tête officiel de Turnkey "X-Stamp" combinant publicKey et signature en JSON
+        // 🌟 CORRECTION DEFINITIVE : Le stamper produit une signature que l'on transforme en Base64 pour l'en-tête X-Stamp
+        const stampObj = {
+            publicKey: stamp.publicKey,
+            signature: stamp.signature,
+            scheme: "SIGNING_SCHEME_TK_API_KEY"
+        };
+        const base64Stamp = Buffer.from(JSON.stringify(stampObj)).toString("base64");
+
         const response = await fetch("https://api.turnkey.com/public/v1/submit/create_sub_organization", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-Stamp": JSON.stringify({
-                    publicKey: stamp.publicKey,
-                    signature: stamp.signature,
-                    scheme: "SIGNING_SCHEME_TK_API_KEY"
-                })
+                "X-Stamp": base64Stamp // 🌟 ICI : Converti en Base64 valide, fini l'erreur "illegal base64 data"
             },
             body: stringifiedPayload
         });

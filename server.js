@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
     res.status(200).send('NoPay Backend Operational with Turnkey Email OTP Infrastructure.');
 });
 
-// 🌟 ROUTE A : ENVOYER LE CODE OTP PAR EMAIL VIA TURNKEY (SYNTAXE RECTIFIÉE)
+// 🌟 ROUTE A : ENVOYER LE CODE OTP (SYNTAXE .REQUEST OFFICIELLE)
 app.post('/api/otp-send', async (req, res) => {
     try {
         const { email } = req.body;
@@ -34,11 +34,14 @@ app.post('/api/otp-send', async (req, res) => {
 
         console.log(`[Turnkey OTP] Requesting magic code for: ${email}`);
         
-        // Correction de l'appel pour utiliser la méthode standard d'authentification email
-        await turnkeyClient.api.initUserEmailAuth({
-            organizationId: parentOrgId,
-            email: email,
-            targetType: "TARGET_TYPE_SUB_ORGANIZATION"
+        // Utilisation de la méthode générique .request exigée par Turnkey
+        await turnkeyClient.request({
+            body: {
+                organizationId: parentOrgId,
+                email: email,
+                targetType: "TARGET_TYPE_SUB_ORGANIZATION"
+            },
+            url: "https://api.turnkey.com/public/v1/submit/init_user_email_auth"
         });
 
         return res.status(200).json({ success: true, message: "Magic code dispatched." });
@@ -48,7 +51,7 @@ app.post('/api/otp-send', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET BASE DEFINITIF
+// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET (SYNTAXE .REQUEST OFFICIELLE)
 app.post('/api/otp-verify', async (req, res) => {
     try {
         const { email, otpCode } = req.body;
@@ -56,24 +59,27 @@ app.post('/api/otp-verify', async (req, res) => {
 
         console.log(`[Turnkey OTP] Verifying code for ${email}...`);
 
-        // Appel direct via .api pour la création de la sous-organisation
-        const activityResponse = await turnkeyClient.api.createSubOrganization({
-            organizationId: parentOrgId,
-            subOrganizationName: `NoPay-${email}`,
-            rootUsers: [{
-                userName: email,
-                userEmail: email,
-                apiKeys: [],
-                authenticators: []
-            }],
-            wallet: {
-                walletName: "Default NoPay Wallet",
-                accounts: [{
-                    curve: "CURVE_SECP256K1",
-                    pathFormat: "PATH_FORMAT_BIP44",
-                    path: "m/44'/60'/0'/0/0" 
-                }]
-            }
+        // Utilisation de la méthode générique .request pour créer la Sub-Org
+        const activityResponse = await turnkeyClient.request({
+            body: {
+                organizationId: parentOrgId,
+                subOrganizationName: `NoPay-${email}`,
+                rootUsers: [{
+                    userName: email,
+                    userEmail: email,
+                    apiKeys: [],
+                    authenticators: []
+                }],
+                wallet: {
+                    walletName: "Default NoPay Wallet",
+                    accounts: [{
+                        curve: "CURVE_SECP256K1",
+                        pathFormat: "PATH_FORMAT_BIP44",
+                        path: "m/44'/60'/0'/0/0" 
+                    }]
+                }
+            },
+            url: "https://api.turnkey.com/public/v1/submit/create_sub_organization"
         });
 
         const walletAddress = activityResponse.activity.result.createSubOrganizationResult.walletAddresses[0];
@@ -93,7 +99,7 @@ app.post('/api/transak-session', async (req, res) => {
         if (!walletAddress) return res.status(400).json({ error: "A valid wallet address is required." });
 
         const isProduction = process.env.NODE_ENV === 'production';
-        const transakBaseUrl = isProduction ? 'https://global.transak.com' : 'https://staging.global.transak.com';
+        const transakBaseUrl = isProduction ? 'https://global.transak.com' : 'https://staging.global.transay.com';
         const defaultCrypto = (fiatCurrency === 'EUR') ? 'EURC' : 'USDC';
 
         const params = new URLSearchParams({

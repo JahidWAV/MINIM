@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-// Initialisation du tampon de signature parent Turnkey
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
@@ -21,7 +20,7 @@ app.get('/', (req, res) => {
     res.status(200).send('NoPay Secure Wallet Factory Online.');
 });
 
-// 🌟 LA ROUTE CORRIGÉE : REÇOIT L'EMAIL ET INJECTE TOUS LES HEADERS REQUIS PAR TURNKEY
+// 🌟 LA ROUTE FINALE CORRIGÉE : INJECTE MANUELLEMENT LE TIMESTAMP REQUIS
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -30,6 +29,10 @@ app.post('/api/create-wallet', async (req, res) => {
         console.log(`[NoPay Factory] Requesting real wallet infrastructure for: ${email}`);
 
         const url = "https://api.turnkey.com/public/v1/submit/create_sub_organization";
+        
+        // 🌟 Calcul du timestamp actuel requis par Turnkey
+        const currentTimestamp = Date.now().toString();
+
         const bodyPayload = JSON.stringify({
             organizationId: parentOrgId,
             parameters: {
@@ -45,14 +48,15 @@ app.post('/api/create-wallet', async (req, res) => {
                     accounts: [{
                         curve: "CURVE_SECP256K1",
                         pathFormat: "PATH_FORMAT_BIP44",
-                        path: "m/44'/60'/0'/0/0" // Réseau Base / EVM standard
+                        path: "m/44'/60'/0'/0/0"
                     }]
                 }
             },
+            timestamp: currentTimestamp, // 🌟 Injecté dans la payload si besoin
             type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION"
         });
 
-        // Génération de la signature et des en-têtes (incluant l'activity timestamp !)
+        // Génération de la signature
         const signature = await stamper.stamp({ method: "POST", url, body: bodyPayload });
 
         const response = await fetch(url, {
@@ -61,7 +65,9 @@ app.post('/api/create-wallet', async (req, res) => {
                 "Content-Type": "application/json",
                 "X-XKey": signature.publicKey,
                 "X-Signature": signature.signature,
-                ...signature.headers // 🌟 Injecte automatiquement les en-têtes temporels manquants
+                "X-Timestamp": currentTimestamp,            // 🌟 Variante 1 d'en-tête
+                "X-Stamp-Timestamp": currentTimestamp,      // 🌟 Variante 2 d'en-tête (Turnkey standard)
+                ...signature.headers                        // Reste des headers du stamper
             },
             body: bodyPayload
         });

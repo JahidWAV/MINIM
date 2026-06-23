@@ -1,13 +1,19 @@
 {
-  "name": "norpay-server",
+  "name": "nopay-backend",
   "version": "1.0.0",
+  "description": "NoPay Backend Operational with Turnkey Infrastructure",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
   "dependencies": {
-    "@coinbase/coinbase-sdk": "latest",
-    "bcrypt": "^5.1.1",
+    "@turnkey/api-key-stamper": "^0.3.0",
+    "@turnkey/http": "^2.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2"
-  }
+    "express": "^4.19.2"
+  },
+  "author": "",
+  "license": "ISC"
 }

@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { TurnkeyClient } = require("@turnkey/http");
 const { ApiKeyStamper } = require("@turnkey/api-key-stamper");
 
 const app = express();
@@ -10,23 +9,19 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
+// Initialisation du Stamper pour signer cryptographiquement nos requêtes HTTP brutes
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
 });
 
-const turnkeyClient = new TurnkeyClient(
-    { baseUrl: "https://api.turnkey.com" },
-    stamper
-);
-
 const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
 
 app.get('/', (req, res) => {
-    res.status(200).send('NoPay Backend Operational with Turnkey Email OTP Infrastructure.');
+    res.status(200).send('NoPay Backend Operational with Native Turnkey Bridge.');
 });
 
-// 🌟 ROUTE A : ENVOYER LE CODE OTP VIA .REQUEST (CHEMIN RELATIF)
+// 🌟 ROUTE A : ENVOYER LE CODE OTP (VIA REQUÊTE DIRECTE SIGNÉE)
 app.post('/api/otp-send', async (req, res) => {
     try {
         const { email } = req.body;
@@ -34,15 +29,35 @@ app.post('/api/otp-send', async (req, res) => {
 
         console.log(`[Turnkey OTP] Requesting magic code for: ${email}`);
         
-        // On passe uniquement la méthode de l'action dans l'URL, le SDK fait le reste
-        await turnkeyClient.request({
-            body: {
-                organizationId: parentOrgId,
-                email: email,
-                targetType: "TARGET_TYPE_SUB_ORGANIZATION"
-            },
-            url: "/public/v1/submit/init_user_email_auth"
+        const url = "https://api.turnkey.com/public/v1/submit/init_user_email_auth";
+        const bodyPayload = JSON.stringify({
+            organizationId: parentOrgId,
+            email: email,
+            targetType: "TARGET_TYPE_SUB_ORGANIZATION"
         });
+
+        // Le Stamper de Turnkey signe la payload pour prouver que la requête vient de ton backend
+        const signature = await stamper.stamp({
+            method: "POST",
+            url: url,
+            body: bodyPayload
+        });
+
+        // Envoi direct par le protocole HTTP natif
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-XKey": signature.publicKey,
+                "X-Signature": signature.signature
+            },
+            body: bodyPayload
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Turnkey API error: ${errorText}`);
+        }
 
         return res.status(200).json({ success: true, message: "Magic code dispatched." });
     } catch (error) {
@@ -51,7 +66,7 @@ app.post('/api/otp-send', async (req, res) => {
     }
 });
 
-// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET BASE
+// 🌟 ROUTE B : VÉRIFIER LE CODE ET CRÉER LE WALLET BASE (VIA REQUÊTE DIRECTE SIGNÉE)
 app.post('/api/otp-verify', async (req, res) => {
     try {
         const { email, otpCode } = req.body;
@@ -59,29 +74,49 @@ app.post('/api/otp-verify', async (req, res) => {
 
         console.log(`[Turnkey OTP] Verifying code for ${email}...`);
 
-        const activityResponse = await turnkeyClient.request({
-            body: {
-                organizationId: parentOrgId,
-                subOrganizationName: `NoPay-${email}`,
-                rootUsers: [{
-                    userName: email,
-                    userEmail: email,
-                    apiKeys: [],
-                    authenticators: []
-                }],
-                wallet: {
-                    walletName: "Default NoPay Wallet",
-                    accounts: [{
-                        curve: "CURVE_SECP256K1",
-                        pathFormat: "PATH_FORMAT_BIP44",
-                        path: "m/44'/60'/0'/0/0" 
-                    }]
-                }
-            },
-            url: "/public/v1/submit/create_sub_organization"
+        const url = "https://api.turnkey.com/public/v1/submit/create_sub_organization";
+        const bodyPayload = JSON.stringify({
+            organizationId: parentOrgId,
+            subOrganizationName: `NoPay-${email}`,
+            rootUsers: [{
+                userName: email,
+                userEmail: email,
+                apiKeys: [],
+                authenticators: []
+            }],
+            wallet: {
+                walletName: "Default NoPay Wallet",
+                accounts: [{
+                    curve: "CURVE_SECP256K1",
+                    pathFormat: "PATH_FORMAT_BIP44",
+                    path: "m/44'/60'/0'/0/0" 
+                }]
+            }
         });
 
-        const walletAddress = activityResponse.activity.result.createSubOrganizationResult.walletAddresses[0];
+        const signature = await stamper.stamp({
+            method: "POST",
+            url: url,
+            body: bodyPayload
+        });
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-XKey": signature.publicKey,
+                "X-Signature": signature.signature
+            },
+            body: bodyPayload
+        });
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+            throw new Error(`Turnkey verification failure: ${JSON.stringify(responseData)}`);
+        }
+
+        const walletAddress = responseData.activity.result.createSubOrganizationResult.walletAddresses[0];
         console.log(`[Turnkey OTP] Verified! Created wallet: ${walletAddress}`);
 
         return res.status(200).json({ walletAddress: walletAddress });
@@ -118,4 +153,4 @@ app.post('/api/transak-session', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`[NoPay Server] Turnkey Engine listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`[NoPay Server] Turnkey Native Bridge listening on port ${PORT}`));

@@ -20,7 +20,7 @@ app.get('/', (req, res) => {
     res.status(200).send('NoPay Secure Wallet Factory Online.');
 });
 
-// 🌟 LA ROUTE DÉFINITIVE AVEC LA PAYLOAD CORRIGÉE POUR TURNKEY
+// 🌟 LA ROUTE AVEC L'INJECTION CORRECTE DU REQUIS X-STAMP
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -29,14 +29,11 @@ app.post('/api/create-wallet', async (req, res) => {
         console.log(`[NoPay Factory] Requesting real wallet infrastructure for: ${email}`);
 
         const url = "https://api.turnkey.com/public/v1/submit/create_sub_organization";
-        
-        // Turnkey exige impérativement le timestamp actuel en millisecondes sous forme de String
         const currentTimestampMs = Date.now().toString();
 
-        // 🌟 RESTRUCTURATION STRICTE DE LA PAYLOAD SELON LES SPECS GO DE TURNKEY
         const bodyPayload = JSON.stringify({
             organizationId: parentOrgId,
-            timestampMs: currentTimestampMs, // 🌟 Placé ici au premier niveau avec le nom EXACT attendu
+            timestampMs: currentTimestampMs,
             type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
             parameters: {
                 subOrganizationName: `NoPay-${email}`,
@@ -57,16 +54,23 @@ app.post('/api/create-wallet', async (req, res) => {
             }
         });
 
-        // Signature du corps parfait
-        const signature = await stamper.stamp({ method: "POST", url, body: bodyPayload });
+        // Génération du stamp cryptographique
+        const stampResult = await stamper.stamp({ method: "POST", url, body: bodyPayload });
+
+        // 🌟 Turnkey attend une structure de headers très spécifique pour son API publique
+        // On construit l'en-tête X-Stamp requis qui contient la clé publique et la signature
+        const stampHeaderValue = JSON.stringify({
+            publicKey: stampResult.publicKey,
+            scheme: "SIGNATURE_SCHEME_TK_API_KEY",
+            signature: stampResult.signature
+        });
 
         const response = await fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-XKey": signature.publicKey,
-                "X-Signature": signature.signature,
-                ...signature.headers // Contient aussi l'en-tête généré par Turnkey
+                "X-Stamp": stampHeaderValue, // 🌟 LE HEADER EXIGÉ PAR TURNKEY !
+                ...stampResult.headers       // On garde aussi les headers automatiques par sécurité
             },
             body: bodyPayload
         });

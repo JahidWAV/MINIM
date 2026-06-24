@@ -12,7 +12,7 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Privy & Transak Server Operational.');
 });
 
-// Fonction utilitaire de requête HTTPS POST corrigée et blindée
+// Fonction utilitaire de requête HTTPS POST
 function makeHttpPostRequest(urlStr, headers, bodyData) {
     return new Promise((resolve, reject) => {
         try {
@@ -69,7 +69,7 @@ app.post('/api/transak', async (req, res) => {
     const userIp = rawIp.split(',')[0].trim();
 
     try {
-        // 🌟 ÉTAPE 1 : Récupération du JWT Access Token frais via l'API de Production
+        // 🌟 ÉTAPE 1 : URL corrigée avec le préfixe /partners exigé par Transak
         const tokenUrl = 'https://api.transak.com/partners/api/v2/refresh-token';
         const tokenHeaders = {
             'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ app.post('/api/transak', async (req, res) => {
 
         const jwtAccessToken = tokenRes.data.data.accessToken;
 
-        // 🌟 ÉTAPE 2 : Génération de l'URL sécurisée à usage unique
+        // 🌟 ÉTAPE 2 : Génération de l'URL sécurisée du widget
         const sessionUrl = 'https://api-gateway.transak.com/api/v2/auth/session';
         const sessionHeaders = {
             'Content-Type': 'application/json',

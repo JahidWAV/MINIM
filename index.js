@@ -12,7 +12,6 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Privy & Transak Server Operational.');
 });
 
-// Fonction utilitaire de requête HTTPS POST
 function makeHttpPostRequest(urlStr, headers, bodyData) {
     return new Promise((resolve, reject) => {
         try {
@@ -64,12 +63,11 @@ app.post('/api/transak', async (req, res) => {
 
     const API_KEY = "03459354-6dae-4d11-85e6-ae886b3111b9";
     const API_SECRET = "TMt0B7owznqPTBU6vXcx9Q==";
-
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     const userIp = rawIp.split(',')[0].trim();
 
     try {
-        // 🌟 ÉTAPE 1 : URL corrigée avec le préfixe /partners exigé par Transak
+        // On tente d'abord sur l'URL de Prod, si ça échoue on pourra basculer sur stg
         const tokenUrl = 'https://api.transak.com/partners/api/v2/refresh-token';
         const tokenHeaders = {
             'Content-Type': 'application/json',
@@ -80,14 +78,20 @@ app.post('/api/transak', async (req, res) => {
 
         const tokenRes = await makeHttpPostRequest(tokenUrl, tokenHeaders, tokenBody);
 
-        if (tokenRes.statusCode !== 200 || !tokenRes.data?.data?.accessToken) {
-            console.error("[Transak Token Error] Payload:", tokenRes.data);
-            return res.status(401).json({ error: 'Transak Gateway Auth Failed', details: tokenRes.data });
+        // 🛡️ MODAC: Si Transak refuse, on renvoie son erreur brute au lieu de crasher en 500
+        if (tokenRes.statusCode !== 200) {
+            return res.status(tokenRes.statusCode).json({
+                error: 'Transak Refresh Token API rejected the request.',
+                statusCode: tokenRes.statusCode,
+                transakResponse: tokenRes.data || tokenRes.raw
+            });
         }
 
-        const jwtAccessToken = tokenRes.data.data.accessToken;
+        const jwtAccessToken = tokenRes.data?.data?.accessToken;
+        if (!jwtAccessToken) {
+            return res.status(500).json({ error: 'No accessToken found in Transak response.', raw: tokenRes.data });
+        }
 
-        // 🌟 ÉTAPE 2 : Génération de l'URL sécurisée du widget
         const sessionUrl = 'https://api-gateway.transak.com/api/v2/auth/session';
         const sessionHeaders = {
             'Content-Type': 'application/json',
@@ -114,13 +118,11 @@ app.post('/api/transak', async (req, res) => {
         if (sessionRes.statusCode === 200 && sessionRes.data?.data?.widgetUrl) {
             return res.status(200).json({ url: sessionRes.data.data.widgetUrl });
         } else {
-            console.error("[Transak Session Error] Payload:", sessionRes.data);
-            return res.status(500).json({ error: 'Transak Session Rejected', details: sessionRes.data });
+            return res.status(sessionRes.statusCode).json({ error: 'Transak Session Rejected', transakResponse: sessionRes.data || sessionRes.raw });
         }
 
     } catch (error) {
-        console.error('[Transak Fatal Server Error]:', error);
-        return res.status(500).json({ error: 'Internal server failure.', message: error.message });
+        return res.status(500).json({ error: 'Catch internal server failure.', message: error.message });
     }
 });
 

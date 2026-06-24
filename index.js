@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api', (req, res) => {
-    res.status(200).send('NoPay Privy & Transak Server Operational.');
+    res.status(200).send('NoPay Privy & Transak Server Operational (Staging).');
 });
 
 function makeHttpPostRequest(urlStr, headers, bodyData) {
@@ -52,7 +52,7 @@ function makeHttpPostRequest(urlStr, headers, bodyData) {
 }
 
 // ==========================================
-// 🚀 ROUTE SECURE POUR TRANSAK PRODUCTION
+// 🚀 ROUTE SECURE POUR TRANSAK STAGING
 // ==========================================
 app.post('/api/transak', async (req, res) => {
     const { email, walletAddress, fiatCurrency, cryptoCurrencyCode } = req.body || {};
@@ -73,8 +73,8 @@ app.post('/api/transak', async (req, res) => {
     const userIp = rawIp.split(',')[0].trim();
 
     try {
-        // 🚀 Passage sur l'URL de Production pour le Refresh Token
-        const tokenUrl = 'https://api.transak.com/partners/api/v2/refresh-token';
+        // 🛠️ Passage sur l'URL de STAGING pour le Refresh Token
+        const tokenUrl = 'https://api-stg.transak.com/partners/api/v2/refresh-token';
         const tokenHeaders = {
             'Content-Type': 'application/json',
             'accept': 'application/json',
@@ -86,7 +86,7 @@ app.post('/api/transak', async (req, res) => {
 
         if (tokenRes.statusCode !== 200) {
             return res.status(tokenRes.statusCode).json({
-                error: 'Transak PROD Refresh Token API rejected.',
+                error: 'Transak STG Refresh Token API rejected.',
                 statusCode: tokenRes.statusCode,
                 transakResponse: tokenRes.data || tokenRes.raw
             });
@@ -94,11 +94,11 @@ app.post('/api/transak', async (req, res) => {
 
         const jwtAccessToken = tokenRes.data?.data?.accessToken;
         if (!jwtAccessToken) {
-            return res.status(500).json({ error: 'No accessToken found in Transak PROD response.' });
+            return res.status(500).json({ error: 'No accessToken found in Transak STG response.' });
         }
 
-        // 🚀 Passage sur l'URL de Production pour la Session de Widget
-        const sessionUrl = 'https://api-gateway.transak.com/api/v2/auth/session';
+        // 🛠️ Passage sur l'URL de STAGING pour la Session de Widget
+        const sessionUrl = 'https://api-gateway-stg.transak.com/api/v2/auth/session';
         const sessionHeaders = {
             'Content-Type': 'application/json',
             'x-api-key': API_KEY,
@@ -115,7 +115,8 @@ app.post('/api/transak', async (req, res) => {
                 cryptoCurrencyCode: cryptoCurrencyCode || 'USDC',
                 fiatCurrency: fiatCurrency || 'USD',
                 themeColor: '000000',
-                productsAvailed: 'buy'
+                productsAvailed: 'buy',
+                environment: 'STAGING' // Sécurité supplémentaire parfois exigée
             }
         });
 
@@ -124,7 +125,7 @@ app.post('/api/transak', async (req, res) => {
         if (sessionRes.statusCode === 200 && sessionRes.data?.data?.widgetUrl) {
             return res.status(200).json({ url: sessionRes.data.data.widgetUrl });
         } else {
-            return res.status(sessionRes.statusCode).json({ error: 'Transak PROD Session Rejected', transakResponse: sessionRes.data || sessionRes.raw });
+            return res.status(sessionRes.statusCode).json({ error: 'Transak STG Session Rejected', transakResponse: sessionRes.data || sessionRes.raw });
         }
 
     } catch (error) {

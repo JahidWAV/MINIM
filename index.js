@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { TurnkeyClient } = require("@turnkey/http");
 const { ApiKeyStamper } = require("@turnkey/api-key-stamper");
 
 const app = express();
@@ -8,13 +9,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 1. Initialisation propre avec tes toutes nouvelles variables d'environnement
 const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
 });
 
-const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID || "100f356f-3e59-40a5-8446-d4731485a68e";
+const client = new TurnkeyClient(
+    { baseUrl: "https://api.turnkey.com" },
+    stamper
+);
 
+const parentOrgId = process.env.TURNKEY_ORGANIZATION_ID;
+
+// Route de test
 app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
@@ -50,18 +58,17 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET AVEC EXTRACTION SÉCURISÉE DE LA SIGNATURE
+// 🌟 RETOUR A LA ROUTE OFFICIELLE DU SDK (COMPATIBLE AVEC TES NOUVELLES CLES)
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Executing documented stamp protocol for: ${email}`);
+        console.log(`[Vercel] Requesting wallet via SDK for: ${email}`);
 
-        const activityPayload = {
+        // L'encapsulation native qui calcule automatiquement les signatures cryptographiques
+        const response = await client.createSubOrganization({
             organizationId: parentOrgId,
-            type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
-            timestampMs: Date.now().toString(),
             parameters: {
                 subOrganizationName: `NoPay-${email}`,
                 rootUsers: [{
@@ -79,56 +86,18 @@ app.post('/api/create-wallet', async (req, res) => {
                     }]
                 }
             }
-        };
-
-        const stringifiedPayload = JSON.stringify(activityPayload);
-        
-        // Le résultat du stamp (peut être une string ou un objet selon la version du SDK)
-        const stampResult = await stamper.stamp(stringifiedPayload);
-
-        // 🌟 EXTRACTION CHIRURGICALE : On s'assure d'obtenir la string pure de la signature, fini le bug de l'accolade "{"
-        const finalSignature = (typeof stampResult === "object" && stampResult !== null) 
-            ? stampResult.signature 
-            : stampResult;
-
-        const stampObj = {
-            publicKey: stamper.apiPublicKey, 
-            signature: finalSignature,
-            scheme: "SIGNATURE_SCHEME_TK_API_P256"
-        };
-
-        // Encodage Base64URL strict
-        const base64UrlStamp = Buffer.from(JSON.stringify(stampObj))
-            .toString("base64")
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
-
-        const response = await fetch("https://api.turnkey.com/public/v1/submit/create_sub_organization", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Stamp": base64UrlStamp
-            },
-            body: stringifiedPayload
         });
 
-        const resData = await response.json();
-
-        if (!response.ok) {
-            throw new Error(JSON.stringify(resData));
-        }
-
-        const walletAddress = resData.activity.result.createSubOrganizationResult.walletAddresses[0];
-        console.log(`[Vercel] Wallet successfully forced: ${walletAddress}`);
-        
+        const walletAddress = response.createSubOrganizationResult.walletAddresses[0];
+        console.log(`[Vercel] Successfully generated: ${walletAddress}`);
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey Doc Compliance Error:", error.message);
+        console.error("[Vercel] Turnkey SDK Error Details:", error);
         return res.status(500).json({ 
-            error: "Turnkey Direct execution failed.", 
-            message: error.message
+            error: "Turnkey SDK execution failed.", 
+            message: error.message || "Unknown Turnkey error",
+            details: error
         });
     }
 });

@@ -50,13 +50,13 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET AVEC LES EN-TÊTES SÉPARÉS DU STAMPER
+// ROUTE : CRÉATION DU WALLET (ALIGNÉE STRICTEMENT SUR LA DOCUMENTATION)
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Direct POST with dual native headers for: ${email}`);
+        console.log(`[Vercel] Executing documented stamp protocol for: ${email}`);
 
         const activityPayload = {
             organizationId: parentOrgId,
@@ -83,16 +83,29 @@ app.post('/api/create-wallet', async (req, res) => {
 
         const stringifiedPayload = JSON.stringify(activityPayload);
         
-        // 🌟 Appel de la vraie méthode .stamp() que ton package possède
+        // Étape 1 : Obtenir la signature via le stamper
         const stamp = await stamper.stamp(stringifiedPayload);
 
-        // 🌟 Les en-têtes alternatifs officiels acceptés par Turnkey
+        // Étape 3 : Créer l'objet JSON-encoded stamp avec le scheme exact de la doc
+        const stampObj = {
+            publicKey: stamp.publicKey,
+            signature: stamp.signature, // Le SDK produit déjà du hex DER encodé
+            scheme: "SIGNATURE_SCHEME_TK_API_P256"
+        };
+
+        // Étape 4 : Base64URL encode the stamp (Spécification stricte de la doc)
+        const base64UrlStamp = Buffer.from(JSON.stringify(stampObj))
+            .toString("base64")
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, ""); // Nettoyage au format base64url standard
+
+        // Étape 5 & 6 : Soumettre avec l'en-tête X-Stamp
         const response = await fetch("https://api.turnkey.com/public/v1/submit/create_sub_organization", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-Stamp-X509-PublicKey": stamp.publicKey,
-                "X-Stamp-Signature": stamp.signature
+                "X-Stamp": base64UrlStamp
             },
             body: stringifiedPayload
         });
@@ -104,12 +117,12 @@ app.post('/api/create-wallet', async (req, res) => {
         }
 
         const walletAddress = resData.activity.result.createSubOrganizationResult.walletAddresses[0];
-        console.log(`[Vercel] Wallet successfully generated: ${walletAddress}`);
+        console.log(`[Vercel] Wallet successfully forced: ${walletAddress}`);
         
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey Fatal Error:", error.message);
+        console.error("[Vercel] Turnkey Doc Compliance Error:", error.message);
         return res.status(500).json({ 
             error: "Turnkey Direct execution failed.", 
             message: error.message

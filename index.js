@@ -50,7 +50,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET (ALIGNÉE STRICTEMENT SUR LA DOCUMENTATION)
+// ROUTE : CRÉATION DU WALLET CORRIGÉE (PUBLIC KEY EXTRAITE DE L'INSTANCE)
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -83,24 +83,23 @@ app.post('/api/create-wallet', async (req, res) => {
 
         const stringifiedPayload = JSON.stringify(activityPayload);
         
-        // Étape 1 : Obtenir la signature via le stamper
-        const stamp = await stamper.stamp(stringifiedPayload);
+        // La signature brute générée par le package
+        const signatureString = await stamper.stamp(stringifiedPayload);
 
-        // Étape 3 : Créer l'objet JSON-encoded stamp avec le scheme exact de la doc
+        // 🌟 CORRECTION : On va chercher la clé publique directement sur l'instance du stamper (stamper.apiPublicKey)
         const stampObj = {
-            publicKey: stamp.publicKey,
-            signature: stamp.signature, // Le SDK produit déjà du hex DER encodé
+            publicKey: stamper.apiPublicKey, 
+            signature: signatureString,
             scheme: "SIGNATURE_SCHEME_TK_API_P256"
         };
 
-        // Étape 4 : Base64URL encode the stamp (Spécification stricte de la doc)
+        // Encodage Base64URL strict
         const base64UrlStamp = Buffer.from(JSON.stringify(stampObj))
             .toString("base64")
             .replace(/\+/g, "-")
             .replace(/\//g, "_")
-            .replace(/=+$/, ""); // Nettoyage au format base64url standard
+            .replace(/=+$/, "");
 
-        // Étape 5 & 6 : Soumettre avec l'en-tête X-Stamp
         const response = await fetch("https://api.turnkey.com/public/v1/submit/create_sub_organization", {
             method: "POST",
             headers: {

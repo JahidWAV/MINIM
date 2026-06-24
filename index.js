@@ -61,13 +61,19 @@ app.post('/api/transak', async (req, res) => {
         return res.status(400).json({ error: 'Missing walletAddress or email.' });
     }
 
-    const API_KEY = "03459354-6dae-4d11-85e6-ae886b3111b9";
-    const API_SECRET = "TMt0B7owznqPTBU6vXcx9Q==";
+    // 🛡️ Récupération sécurisée depuis Vercel
+    const API_KEY = process.env.TRANSAK_API_KEY;
+    const API_SECRET = process.env.TRANSAK_API_SECRET;
+
+    if (!API_KEY || !API_SECRET) {
+        return res.status(500).json({ error: 'Missing Transak API credentials in Vercel settings.' });
+    }
+
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     const userIp = rawIp.split(',')[0].trim();
 
     try {
-        // On tente d'abord sur l'URL de Prod, si ça échoue on pourra basculer sur stg
+        // 🚀 Passage sur l'URL de Production pour le Refresh Token
         const tokenUrl = 'https://api.transak.com/partners/api/v2/refresh-token';
         const tokenHeaders = {
             'Content-Type': 'application/json',
@@ -78,10 +84,9 @@ app.post('/api/transak', async (req, res) => {
 
         const tokenRes = await makeHttpPostRequest(tokenUrl, tokenHeaders, tokenBody);
 
-        // 🛡️ MODAC: Si Transak refuse, on renvoie son erreur brute au lieu de crasher en 500
         if (tokenRes.statusCode !== 200) {
             return res.status(tokenRes.statusCode).json({
-                error: 'Transak Refresh Token API rejected the request.',
+                error: 'Transak PROD Refresh Token API rejected.',
                 statusCode: tokenRes.statusCode,
                 transakResponse: tokenRes.data || tokenRes.raw
             });
@@ -89,9 +94,10 @@ app.post('/api/transak', async (req, res) => {
 
         const jwtAccessToken = tokenRes.data?.data?.accessToken;
         if (!jwtAccessToken) {
-            return res.status(500).json({ error: 'No accessToken found in Transak response.', raw: tokenRes.data });
+            return res.status(500).json({ error: 'No accessToken found in Transak PROD response.' });
         }
 
+        // 🚀 Passage sur l'URL de Production pour la Session de Widget
         const sessionUrl = 'https://api-gateway.transak.com/api/v2/auth/session';
         const sessionHeaders = {
             'Content-Type': 'application/json',
@@ -118,7 +124,7 @@ app.post('/api/transak', async (req, res) => {
         if (sessionRes.statusCode === 200 && sessionRes.data?.data?.widgetUrl) {
             return res.status(200).json({ url: sessionRes.data.data.widgetUrl });
         } else {
-            return res.status(sessionRes.statusCode).json({ error: 'Transak Session Rejected', transakResponse: sessionRes.data || sessionRes.raw });
+            return res.status(sessionRes.statusCode).json({ error: 'Transak PROD Session Rejected', transakResponse: sessionRes.data || sessionRes.raw });
         }
 
     } catch (error) {

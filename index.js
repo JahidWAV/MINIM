@@ -12,37 +12,43 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Privy & Transak Server Operational.');
 });
 
-// Fonction utilitaire robuste pour exécuter des requêtes HTTPS POST
+// Fonction utilitaire de requête HTTPS POST corrigée et blindée
 function makeHttpPostRequest(urlStr, headers, bodyData) {
     return new Promise((resolve, reject) => {
-        const url = new URL(urlStr);
-        const options = {
-            hostname: url.hostname,
-            port: 443,
-            path: url.pathname + url.search,
-            method: 'POST',
-            headers: {
-                ...headers,
-                'Content-Length': Buffer.byteLength(bodyData)
-            }
-        };
-
-        const req = https.request(options, (res) => {
-            let body = '';
-            res.on('data', (chunk) => { body += chunk; });
-            res.on('end', () => {
-                try {
-                    const parsed = JSON.parse(body);
-                    resolve({ statusCode: res.statusCode, data: parsed });
-                } catch (e) {
-                    resolve({ statusCode: res.statusCode, raw: body });
+        try {
+            const url = new URL(urlStr);
+            const targetPath = url.pathname + (url.search ? url.search : '');
+            
+            const options = {
+                hostname: url.hostname,
+                port: 443,
+                path: targetPath,
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Length': Buffer.byteLength(bodyData)
                 }
-            });
-        });
+            };
 
-        req.on('error', (err) => { reject(err); });
-        req.write(bodyData);
-        req.end();
+            const req = https.request(options, (res) => {
+                let body = '';
+                res.on('data', (chunk) => { body += chunk; });
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(body);
+                        resolve({ statusCode: res.statusCode, data: parsed });
+                    } catch (e) {
+                        resolve({ statusCode: res.statusCode, raw: body });
+                    }
+                });
+            });
+
+            req.on('error', (err) => { reject(err); });
+            req.write(bodyData);
+            req.end();
+        } catch (error) {
+            reject(error);
+        }
     });
 }
 
@@ -63,7 +69,7 @@ app.post('/api/transak', async (req, res) => {
     const userIp = rawIp.split(',')[0].trim();
 
     try {
-        // 🌟 ÉTAPE 1 : Récupération du JWT Access Token frais via l'API de Production officielle
+        // 🌟 ÉTAPE 1 : Récupération du JWT Access Token frais via l'API de Production
         const tokenUrl = 'https://api.transak.com/partners/api/v2/refresh-token';
         const tokenHeaders = {
             'Content-Type': 'application/json',

@@ -51,7 +51,8 @@ app.post('/api/transak', (req, res) => {
         headers: {
             'Content-Type': 'application/json',
             'x-api-key': API_KEY,
-            'access-token': ACCESS_TOKEN,
+            'api-secret': ACCESS_TOKEN,   // 🛡️ En-tête officiel exigé par l'API
+            'access-token': ACCESS_TOKEN, // 🛡️ Doublon de sécurité exigé par le validateur gateway
             'x-user-ip': userIp,
             'Content-Length': Buffer.byteLength(postData)
         }

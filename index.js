@@ -19,7 +19,7 @@ app.get('/api', (req, res) => {
     res.status(200).send('NoPay Secure Serverless Hub Online.');
 });
 
-// ROUTE : ENVOI DE L'OTP
+// ROUTE : ENVOI DE L'OTP VIA RESEND
 app.post('/api/send-otp', async (req, res) => {
     try {
         const { email, code } = req.body;
@@ -50,15 +50,14 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET CONFORME AU STAMPER
+// ROUTE : CRÉATION DU WALLET AVEC LES EN-TÊTES SÉPARÉS DU STAMPER
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Authorizing request using official stamper layout for: ${email}`);
+        console.log(`[Vercel] Direct POST with dual native headers for: ${email}`);
 
-        const url = "https://api.turnkey.com/public/v1/submit/create_sub_organization";
         const activityPayload = {
             organizationId: parentOrgId,
             type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
@@ -83,24 +82,18 @@ app.post('/api/create-wallet', async (req, res) => {
         };
 
         const stringifiedPayload = JSON.stringify(activityPayload);
+        
+        // 🌟 Appel de la vraie méthode .stamp() que ton package possède
+        const stamp = await stamper.stamp(stringifiedPayload);
 
-        // 🌟 LA METHODE OFFICIELLE DU STAMPER POUR GENERER LES HEADERS REQUIS
-        // Elle s'occupe seule du formatage de la signature (que ce soit X-Stamp ou les clés individuelles)
-        const signedHeaders = await stamper.stampRequest({
-            url: url,
+        // 🌟 Les en-têtes alternatifs officiels acceptés par Turnkey
+        const response = await fetch("https://api.turnkey.com/public/v1/submit/create_sub_organization", {
             method: "POST",
-            body: stringifiedPayload
-        });
-
-        // On fusionne le Content-Type avec les en-têtes cryptographiques générés automatiquement
-        const fullHeaders = {
-            "Content-Type": "application/json",
-            ...signedHeaders
-        };
-
-        const response = await fetch(url, {
-            method: "POST",
-            headers: fullHeaders,
+            headers: {
+                "Content-Type": "application/json",
+                "X-Stamp-X509-PublicKey": stamp.publicKey,
+                "X-Stamp-Signature": stamp.signature
+            },
             body: stringifiedPayload
         });
 
@@ -116,7 +109,7 @@ app.post('/api/create-wallet', async (req, res) => {
         return res.status(200).json({ walletAddress: walletAddress });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey Native Stamp Request Fatal Error:", error.message);
+        console.error("[Vercel] Turnkey Fatal Error:", error.message);
         return res.status(500).json({ 
             error: "Turnkey Direct execution failed.", 
             message: error.message

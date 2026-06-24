@@ -50,7 +50,7 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET CORRIGÉE (PUBLIC KEY EXTRAITE DE L'INSTANCE)
+// ROUTE : CRÉATION DU WALLET AVEC EXTRACTION SÉCURISÉE DE LA SIGNATURE
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
@@ -83,13 +83,17 @@ app.post('/api/create-wallet', async (req, res) => {
 
         const stringifiedPayload = JSON.stringify(activityPayload);
         
-        // La signature brute générée par le package
-        const signatureString = await stamper.stamp(stringifiedPayload);
+        // Le résultat du stamp (peut être une string ou un objet selon la version du SDK)
+        const stampResult = await stamper.stamp(stringifiedPayload);
 
-        // 🌟 CORRECTION : On va chercher la clé publique directement sur l'instance du stamper (stamper.apiPublicKey)
+        // 🌟 EXTRACTION CHIRURGICALE : On s'assure d'obtenir la string pure de la signature, fini le bug de l'accolade "{"
+        const finalSignature = (typeof stampResult === "object" && stampResult !== null) 
+            ? stampResult.signature 
+            : stampResult;
+
         const stampObj = {
             publicKey: stamper.apiPublicKey, 
-            signature: signatureString,
+            signature: finalSignature,
             scheme: "SIGNATURE_SCHEME_TK_API_P256"
         };
 

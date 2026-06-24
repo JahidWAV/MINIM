@@ -1,25 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { Turnkey } = require("@turnkey/sdk-server");
+const { PrivyClient } = require("@privy-io/server-auth");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// 🌟 Initialisation de la nouvelle librairie (fini l'ancien TurnkeyClient et le stamper manuel)
-const turnkey = new Turnkey({
-    apiBaseUrl: "https://api.turnkey.com",
-    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY,
-    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY,
-    defaultOrganizationId: process.env.TURNKEY_ORGANIZATION_ID,
-});
-
-const apiClient = turnkey.apiClient();
+// Initialisation officielle et simple de Privy
+const privy = new PrivyClient(
+    process.env.PRIVY_APP_ID, 
+    process.env.PRIVY_APP_SECRET
+);
 
 app.get('/api', (req, res) => {
-    res.status(200).send('NoPay Secure Serverless Hub Online.');
+    res.status(200).send('NoPay Secure Privy Hub Online.');
 });
 
 // ROUTE : ENVOI DE L'OTP VIA RESEND
@@ -53,46 +49,45 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
-// ROUTE : CRÉATION DU WALLET AVEC LE NOUVEAU SDK
+// ROUTE : CRÉATION DU WALLET EMBARQUÉ VIA PRIVY 🚀
 app.post('/api/create-wallet', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required." });
 
-        console.log(`[Vercel] Requesting sub-organization creation via SDK Server for: ${email}`);
+        console.log(`[Vercel] Privy - Importing or creating user for: ${email}`);
 
-        // La nouvelle méthode officielle du SDK Server
-        const response = await apiClient.createSubOrganization({
-            subOrganizationName: `NoPay-${email}`,
-            rootUsers: [{
-                userName: email,
-                userEmail: email,
-                apiKeys: [],
-                authenticators: []
-            }],
-            rootQuorumThreshold: 1,
-            wallet: {
-                walletName: "Default NoPay Wallet",
-                accounts: [{
-                    curve: "CURVE_SECP256K1",
-                    pathFormat: "PATH_FORMAT_BIP44",
-                    path: "m/44'/60'/0'/0/0"
-                }]
-            }
+        // 1. On crée ou récupère l'utilisateur Privy lié à cet email
+        const user = await privy.importUser({
+            linkedAccounts: [
+                {
+                    type: "email",
+                    address: email.toLowerCase()
+                }
+            ]
         });
 
-        // La nouvelle librairie renvoie directement l'ID
-        const walletAddress = response.subOrganizationId;
-        console.log(`[Vercel] Successfully generated subOrg: ${walletAddress}`);
+        console.log(`[Vercel] Privy User initialized: ${user.id}. Generating Embedded Wallet...`);
+
+        // 2. On lui crée son wallet EVM embarqué en une seule ligne de code !
+        const wallet = await privy.createWallet({
+            userId: user.id,
+            chainType: "ethereum" // Crée un wallet EVM (Ethereum, Base, Arbitrum, etc.)
+        });
+
+        console.log(`[Vercel] Privy Wallet successfully generated: ${wallet.address}`);
         
-        return res.status(200).json({ walletAddress: walletAddress });
+        return res.status(200).json({ 
+            success: true,
+            privyUserId: user.id,
+            walletAddress: wallet.address 
+        });
 
     } catch (error) {
-        console.error("[Vercel] Turnkey SDK Server Error:", error);
+        console.error("[Vercel] Privy Global Error:", error);
         return res.status(500).json({ 
-            error: "Turnkey SDK execution failed.", 
-            message: error.message || "Unknown error",
-            details: error
+            error: "Privy execution failed.", 
+            message: error.message || "Unknown error"
         });
     }
 });

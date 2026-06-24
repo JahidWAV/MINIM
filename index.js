@@ -1,97 +1,86 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
 const https = require('https');
 
-module.exports = async (req, res) => {
-    // Gestion des en-têtes CORS pour autoriser ton application iPhone
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+const app = express();
 
-    // Réponse rapide pour les requêtes de vérification OPTIONS (CORS)
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+app.use(cors());
+app.use(express.json());
+
+// Route de test (accessible via https://minim-lake.vercel.app/api)
+app.get('/api', (req, res) => {
+    res.status(200).send('NoPay Privy & Transak Server Operational.');
+});
+
+// ==========================================
+// 🚀 ROUTE SECURE POUR TRANSAK PRODUCTION
+// ==========================================
+app.post('/api/transak', (req, res) => {
+    const { email, walletAddress, fiatCurrency, cryptoCurrencyCode } = req.body || {};
+
+    if (!walletAddress || !email) {
+        return res.status(400).json({ error: 'Missing walletAddress or email.' });
     }
 
-    // ROUTE DE VÉRIFICATION : GET /api
-    if (req.method === 'GET') {
-        return res.status(200).send('NoPay Transak Server Operational on Vercel.');
-    }
+    const API_KEY = "03459354-6dae-4d11-85e6-ae886b3111b9";
+    const ACCESS_TOKEN = "TMt0B7owznqPTBU6vXcx9Q==";
 
-    // ROUTE PRINCIPALE : POST /api/transak
-    if (req.method === 'POST') {
-        const { email, walletAddress, fiatCurrency, cryptoCurrencyCode } = req.body || {};
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const userIp = rawIp.split(',')[0].trim();
 
-        if (!walletAddress || !email) {
-            return res.status(400).json({ error: 'Missing walletAddress or email.' });
+    const postData = JSON.stringify({
+        widgetParams: {
+            apiKey: API_KEY,
+            referrerDomain: "com.nopay.app",
+            walletAddress: walletAddress.trim(),
+            email: email.trim(),
+            network: 'base',
+            cryptoCurrencyCode: cryptoCurrencyCode || 'USDC',
+            fiatCurrency: fiatCurrency || 'USD',
+            themeColor: '000000',
+            productsAvailed: 'buy'
         }
+    });
 
-        // 🔑 Tes identifiants de production Transak
-        const API_KEY = "03459354-6dae-4d11-85e6-ae886b3111b9";
-        const ACCESS_TOKEN = "TMt0B7owznqPTBU6vXcx9Q==";
+    const options = {
+        hostname: 'api-gateway.transak.com',
+        port: 443,
+        path: '/api/v2/auth/session',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+            'access-token': ACCESS_TOKEN,
+            'x-user-ip': userIp,
+            'Content-Length': Buffer.byteLength(postData)
+        }
+    };
 
-        // Extraction de l'adresse IP
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-        const userIp = rawIp.split(',')[0].trim();
-
-        const postData = JSON.stringify({
-            widgetParams: {
-                apiKey: API_KEY,
-                referrerDomain: "com.nopay.app",
-                walletAddress: walletAddress.trim(),
-                email: email.trim(),
-                network: 'base',
-                cryptoCurrencyCode: cryptoCurrencyCode || 'USDC',
-                fiatCurrency: fiatCurrency || 'USD',
-                themeColor: '000000',
-                productsAvailed: 'buy'
+    const transakReq = https.request(options, (transakRes) => {
+        let responseBody = '';
+        transakRes.on('data', (chunk) => { responseBody += chunk; });
+        transakRes.on('end', () => {
+            try {
+                const result = JSON.parse(responseBody);
+                if (transakRes.statusCode === 200 && result.data && result.data.widgetUrl) {
+                    return res.status(200).json({ url: result.data.widgetUrl });
+                } else {
+                    return res.status(500).json({ error: 'Transak rejected session generation.', details: result });
+                }
+            } catch (e) {
+                return res.status(500).json({ error: 'Failed to parse Transak response.' });
             }
         });
+    });
 
-        // Configuration de la requête vers Transak
-        const options = {
-            hostname: 'api-gateway.transak.com',
-            port: 443,
-            path: '/api/v2/auth/session',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': API_KEY,
-                'access-token': ACCESS_TOKEN,
-                'x-user-ip': userIp,
-                'Content-Length': Buffer.byteLength(postData)
-            }
-        };
+    transakReq.on('error', (error) => {
+        return res.status(500).json({ error: 'Internal server communication failure.' });
+    });
 
-        return new Promise((resolve) => {
-            const transakReq = https.request(options, (transakRes) => {
-                let responseBody = '';
-                transakRes.on('data', (chunk) => { responseBody += chunk; });
-                transakRes.on('end', () => {
-                    try {
-                        const result = JSON.parse(responseBody);
-                        if (transakRes.statusCode === 200 && result.data && result.data.widgetUrl) {
-                            res.status(200).json({ url: result.data.widgetUrl });
-                        } else {
-                            res.status(500).json({ error: 'Transak rejected session generation.', details: result });
-                        }
-                    } catch (e) {
-                        res.status(500).json({ error: 'Failed to parse Transak response.' });
-                    }
-                    resolve();
-                });
-            });
+    transakReq.write(postData);
+    transakReq.end();
+});
 
-            transakReq.on('error', (error) => {
-                res.status(500).json({ error: 'Internal server communication failure.' });
-                resolve();
-            });
-
-            transakReq.write(postData);
-            transakReq.end();
-        });
-    }
-
-    // Si une autre méthode ou route est appelée
-    return res.status(404).json({ error: 'Not found' });
-};
+// 🌟 TRÈS IMPORTANT POUR VERCEL + EXPRESS : On exporte juste l'application sans app.listen !
+module.exports = app;

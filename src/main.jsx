@@ -1,29 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
-import { ethers } from 'ethers';
+import { PrivyProvider, usePrivy, usePasswordlessAuth } from '@privy-io/react-auth';
 
-const PRIVY_APP_ID = "ton-privy-app-id-ici"; // Remplace par ton vrai ID Privy !
+// Ton App ID unique[cite: 2]
+const PRIVY_APP_ID = "cmqollwmd000s0cky0evrjnkd"; 
 
 function KoppiApp() {
-  const { login, logout, authenticated, user } = usePrivy();
+  const { authenticated, user, logout } = usePrivy();
+  const { initLoginWithCode, loginWithCode } = usePasswordlessAuth();
+  
   const [view, setView] = useState('landing'); // 'landing' ou 'portal'
-  const [balance, setBalance] = useState({ int: '1930', frac: '.50' });
-  const [address, setAddress] = useState('0XAA41...F532');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState('email'); // 'email' ou 'otp'
+  const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    if (authenticated && user?.wallet) {
-      const addr = user.wallet.address;
-      setAddress(addr.substring(0, 6).toUpperCase() + '...' + addr.substring(addr.length - 4).toUpperCase());
-      // Optionnel : tu pourras brancher ton provider ethers ici pour lire le solde réel
+  // 🚀 ACTION 1 : Envoi du mail directement par Privy (Zéro backend, Zéro redirection)
+  const handleSendCode = async () => {
+    if (!email.includes('@')) return;
+    setStatus("Sending...");
+    try {
+      await initLoginWithCode({ email: email.trim().toLowerCase() });
+      setStep('otp');
+      setStatus("Code sent to your inbox.");
+    } catch (err) {
+      setStatus("Error sending code. Try again.");
     }
-  }, [authenticated, user]);
+  };
+
+  // 🚀 ACTION 2 : Vérification du code OTP
+  const handleVerifyCode = async () => {
+    if (code.length !== 6) return;
+    setStatus("Verifying...");
+    try {
+      await loginWithCode({ email: email.trim().toLowerCase(), code: code.trim() });
+    } catch (err) {
+      setStatus("Invalid code.");
+    }
+  };
 
   if (view === 'landing') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', justifyContent: 'space-between' }}>
         <nav style={{ width: '100%', height: '80px', background: 'rgba(244,245,247,0.85)', backdropFilter: 'blur(20px)', position: 'fixed', top: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 40px', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-          <div style={{ fontMedium: 700, letterSpacing: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Koppi</div>
+          <div style={{ letterSpacing: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Koppi</div>
           <button onClick={() => setView('portal')} style={{ height: '42px', padding: '0 24px', background: '#020202', color: '#fff', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', borderRadius: '21px', border: 'none', cursor: 'pointer' }}>Open Web App</button>
         </nav>
 
@@ -50,18 +70,33 @@ function KoppiApp() {
 
       {!authenticated ? (
         <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.03)', borderRadius: '28px', padding: '42px 32px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' }}>
-          <h2 style={{ fontSize: '26px', fontWeight: '800', marginBottom: '10px' }}>Connect to Koppi</h2>
-          <p style={{ fontSize: '13px', color: '#888', marginBottom: '32px' }}>Access your keyless operational environment securely via email verification code.</p>
-          <button onClick={login} style={{ width: '100%', height: '50px', background: '#020202', color: '#fff', fontSize: '13px', fontWeight: '700', borderRadius: '25px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}>Sign in or Register</button>
+          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Connect to Koppi</h2>
+          <p style={{ fontSize: '13px', color: '#888', marginBottom: '24px' }}>Verify your account via an operational security e-mail code.</p>
+          
+          {step === 'email' ? (
+            <div>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', height: '50px', background: 'rgba(0,0,0,0.03)', border: '1px solid transparent', borderRadius: '12px', padding: '0 16px', fontSize: '14px', marginBottom: '12px', textAlign: 'center', outline: 'none' }} placeholder="Enter your email address" />
+              <button onClick={handleSendCode} style={{ width: '100%', height: '50px', background: '#020202', color: '#fff', fontSize: '13px', fontWeight: '700', borderRadius: '25px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}>Continue</button>
+            </div>
+          ) : (
+            <div>
+              <input type="text" value={code} onChange={(e) => setCode(e.target.value)} maxLength="6" style={{ width: '100%', height: '50px', background: 'rgba(0,0,0,0.03)', border: '1px solid transparent', borderRadius: '12px', padding: '0 16px', fontSize: '16px', fontWeight: 'bold', letterSpacing: '4px', marginBottom: '12px', textAlign: 'center', outline: 'none' }} placeholder="000000" />
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}>{status}</div>
+              <button onClick={handleVerifyCode} style={{ width: '100%', height: '50px', background: '#020202', color: '#fff', fontSize: '13px', fontWeight: '700', borderRadius: '25px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}>Verify and Connect</button>
+              <button onClick={() => setStep('email')} style={{ background: 'none', border: 'none', color: '#888', fontSize: '11px', marginTop: '16px', cursor: 'pointer', textTransform: 'uppercase', fontWeight: '700' }}>Go Back</button>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.03)', borderRadius: '28px', padding: '42px 32px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '16px' }}>🟢 Account Connected</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', marginBottom: '16px' }}>🟢 Operational</div>
             <div style={{ fontSize: '46px', fontWeight: '800', color: '#020202' }}>
-              {balance.int}<span style={{ fontSize: '24px', color: '#888', verticalAlign: 'super', fontWeight: '700' }}>{balance.frac}</span>
+              1930<span style={{ fontSize: '24px', color: '#888', verticalAlign: 'super', fontWeight: '700' }}>.50$</span>
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#b1b1b1', marginTop: '8px', marginBottom: '24px' }}>{address}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#b1b1b1', marginTop: '8px', marginBottom: '24px' }}>
+              {user?.wallet?.address ? user.wallet.address.substring(0, 8).toUpperCase() + '...' + user.wallet.address.substring(user.wallet.address.length - 8).toUpperCase() : "0xAA41C6E8...595F3523"}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <button style={{ height: '44px', fontSize: '12px', fontWeight: '700', background: '#020202', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}>Add Money</button>
               <button style={{ height: '44px', fontSize: '12px', fontWeight: '700', background: 'rgba(0,0,0,0.04)', color: '#020202', borderRadius: '12px', border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}>Transfer</button>

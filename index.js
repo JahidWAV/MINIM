@@ -1,8 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const https = require('https');
 const path = require('path');
+// 🌟 On importe le SDK officiel de Privy déjà présent dans tes dépendances
+const { PrivyClient } = require('@privy-io/server-auth');
 
 const app = express();
 
@@ -16,85 +17,41 @@ app.get('/', (req, res) => {
 });
 
 // ========================================================
-// 🔒 PASSERELLE SECRÈTE API HEADLESS PRIVY SÉCURISÉE
+// 🔒 INITIALISATION DU SDK OFFICIEL PRIVY SERVER
 // ========================================================
 const PRIVY_APP_ID = "cmqollwmd000s0cky0evrjnkd";
-const PRIVY_APP_SECRET = (process.env.PRIVY_APP_SECRET || "").trim(); 
+const PRIVY_APP_SECRET = (process.env.PRIVY_APP_SECRET || "").trim();
 
-function privyServerRequest(apiPath, bodyData) {
-    return new Promise((resolve, reject) => {
-        // Encodage strict et propre des identifiants
-        const authToken = Buffer.from(`${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`).toString('base64');
-        
-        const options = {
-            hostname: 'auth.privy.io',
-            port: 443,
-            path: apiPath,
-            method: 'POST',
-            headers: {
-                'Authorization': `Basic ${authToken}`,
-                'Content-Type': 'application/json',
-                'privy-app-id': PRIVY_APP_ID, // Sécurité additionnelle requise par l'infra Privy
-                'Content-Length': Buffer.byteLength(bodyData)
-            }
-        };
+const privy = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET);
 
-        const req = https.request(options, (res) => {
-            let body = '';
-            res.on('data', (chunk) => { body += chunk; });
-            res.on('end', () => {
-                try { resolve({ statusCode: res.statusCode, data: JSON.parse(body) }); }
-                catch (e) { resolve({ statusCode: res.statusCode, raw: body }); }
-            });
-        });
-        
-        req.on('error', (err) => reject(err));
-        req.write(bodyData);
-        req.end();
-    });
-}
-
+// 🚀 ROUTE : Envoi du code OTP via le SDK
 app.post('/api/auth/send-otp', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email manquant' });
 
     try {
-        const body = JSON.stringify({ email: email.trim().toLowerCase(), login_method: 'email' });
-        // 🌟 CORRECTION URL : /api/v1/passwordless/send au lieu de /api/v1/auth/passwordless/send
-        const result = await privyServerRequest('/api/v1/passwordless/send', body);
-        
-        return res.status(result.statusCode).json(result.data);
+        // Le SDK gère lui-même les URL exactes et l'encodage des headers en arrière-plan
+        await privy.passwordless.sendOtp({ email: email.trim().toLowerCase() });
+        return res.status(200).json({ success: true });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
 });
 
+// 🚀 ROUTE : Vérification du code OTP via le SDK
 app.post('/api/auth/verify-otp', async (req, res) => {
     const { email, code } = req.body;
     if (!email || !code) return res.status(400).json({ error: 'Paramètres manquants' });
 
     try {
-        const body = JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() });
-        // 🌟 CORRECTION URL : /api/v1/passwordless/authenticate au lieu de /api/v1/auth/passwordless/authenticate
-        const result = await privyServerRequest('/api/v1/passwordless/authenticate', body);
+        const authToken = await privy.passwordless.authenticate({
+            email: email.trim().toLowerCase(),
+            code: code.trim()
+        });
         
-        const walletAddress = result.data?.user?.embedded_wallets?.[0]?.address || "0xAA41C6E80982E2E67B1028BD595F3523AA41F532";
-        return res.status(result.statusCode).json({ success: true, walletAddress: walletAddress });
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/auth/verify-otp', async (req, res) => {
-    const { email, code } = req.body;
-    if (!email || !code) return res.status(400).json({ error: 'Paramètres manquants' });
-
-    try {
-        const body = JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() });
-        const result = await privyServerRequest('/api/v1/auth/passwordless/authenticate', body);
-        
-        const walletAddress = result.data?.user?.embedded_wallets?.[0]?.address || "0xAA41C6E80982E2E67B1028BD595F3523AA41F532";
-        return res.status(result.statusCode).json({ success: true, walletAddress: walletAddress });
+        // Récupération de l'adresse du portefeuille relié ou fallback
+        const walletAddress = authToken.user?.embeddedWallets?.[0]?.address || "0xAA41C6E80982E2E67B1028BD595F3523AA41F532";
+        return res.status(200).json({ success: true, walletAddress: walletAddress });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
@@ -103,6 +60,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 // ========================================================
 // 🚀 ROUTE TRANSAK SÉCURISÉE (INCHANGÉE)
 // ========================================================
+const https = require('https');
 function makeHttpPostRequest(urlStr, headers, bodyData) {
     return new Promise((resolve, reject) => {
         try {
@@ -166,6 +124,4 @@ app.post('/api/transak', async (req, res) => {
     }
 });
 
-// 🌟 EXPORT OBLIGATOIRE POUR ÉVITER LE CRASH INTERNE VERCEL FUNCTIONS :
-// On s'assure d'exporter l'instance de l'application de façon à ce que l'injecteur Vercel l'intercepte proprement au point d'entrée.
 module.exports = app;

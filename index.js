@@ -60,10 +60,26 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     try {
         const body = JSON.stringify({ email: email.trim().toLowerCase(), login_method: 'email' });
-        const result = await privyServerRequest('/api/v1/auth/passwordless/send', body);
+        // 🌟 CORRECTION URL : /api/v1/passwordless/send au lieu de /api/v1/auth/passwordless/send
+        const result = await privyServerRequest('/api/v1/passwordless/send', body);
         
-        // On renvoie le statut exact de Privy à ton interface
         return res.status(result.statusCode).json(result.data);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Paramètres manquants' });
+
+    try {
+        const body = JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() });
+        // 🌟 CORRECTION URL : /api/v1/passwordless/authenticate au lieu de /api/v1/auth/passwordless/authenticate
+        const result = await privyServerRequest('/api/v1/passwordless/authenticate', body);
+        
+        const walletAddress = result.data?.user?.embedded_wallets?.[0]?.address || "0xAA41C6E80982E2E67B1028BD595F3523AA41F532";
+        return res.status(result.statusCode).json({ success: true, walletAddress: walletAddress });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }

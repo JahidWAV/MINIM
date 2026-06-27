@@ -16,14 +16,13 @@ app.get('/', (req, res) => {
 });
 
 // ========================================================
-// 🔒 PASSERELLE SECRÈTE API HEADLESS PRIVY SÉCURISÉE
+// 🔒 PASSERELLE SECRÈTE API HEADLESS PRIVY CORRIGÉE
 // ========================================================
 const PRIVY_APP_ID = "cmqollwmd000s0cky0evrjnkd";
 const PRIVY_APP_SECRET = (process.env.PRIVY_APP_SECRET || "").trim(); 
 
 function privyServerRequest(apiPath, bodyData) {
     return new Promise((resolve, reject) => {
-        // Encodage strict et propre des identifiants
         const authToken = Buffer.from(`${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`).toString('base64');
         
         const options = {
@@ -34,7 +33,7 @@ function privyServerRequest(apiPath, bodyData) {
             headers: {
                 'Authorization': `Basic ${authToken}`,
                 'Content-Type': 'application/json',
-                'p标识-app-id': PRIVY_APP_ID, // Sécurité additionnelle requise par l'infra Privy
+                'privy-app-id': PRIVY_APP_ID, 
                 'Content-Length': Buffer.byteLength(bodyData)
             }
         };
@@ -61,8 +60,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
     try {
         const body = JSON.stringify({ email: email.trim().toLowerCase(), login_method: 'email' });
         const result = await privyServerRequest('/api/v1/auth/passwordless/send', body);
-        
-        // On renvoie le statut exact de Privy à ton interface
         return res.status(result.statusCode).json(result.data);
     } catch (err) {
         return res.status(500).json({ error: err.message });
@@ -85,7 +82,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 });
 
 // ========================================================
-// 🚀 ROUTE TRANSAK SÉCURISÉE (INCHANGÉE)
+// 🚀 ROUTE TRANSAK SÉCURISÉE (INCHANGÉE)[cite: 5]
 // ========================================================
 function makeHttpPostRequest(urlStr, headers, bodyData) {
     return new Promise((resolve, reject) => {
@@ -114,40 +111,40 @@ function makeHttpPostRequest(urlStr, headers, bodyData) {
 }
 
 app.post('/api/transak', async (req, res) => {
-    const { email, walletAddress, fiatCurrency, cryptoCurrencyCode } = req.body || {};
-    if (!walletAddress || !email) return res.status(400).json({ error: 'Missing walletAddress or email.' });
+    const { email, walletAddress, fiatCurrency, cryptoCurrencyCode } = req.body || {};[cite: 5]
+    if (!walletAddress || !email) return res.status(400).json({ error: 'Missing walletAddress or email.' });[cite: 5]
 
-    const API_KEY = process.env.TRANSAK_API_KEY;
-    const API_SECRET = process.env.TRANSAK_API_SECRET;
-    if (!API_KEY || !API_SECRET) return res.status(500).json({ error: 'Missing Transak credentials.' });
+    const API_KEY = process.env.TRANSAK_API_KEY;[cite: 5]
+    const API_SECRET = process.env.TRANSAK_API_SECRET;[cite: 5]
+    if (!API_KEY || !API_SECRET) return res.status(500).json({ error: 'Missing Transak credentials.' });[cite: 5]
 
-    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-    const userIp = rawIp.split(',')[0].trim();
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';[cite: 5]
+    const userIp = rawIp.split(',')[0].trim();[cite: 5]
 
     try {
-        const tokenUrl = 'https://api-stg.transak.com/partners/api/v2/refresh-token';
-        const tokenRes = await makeHttpPostRequest(tokenUrl, { 'Content-Type': 'application/json', 'accept': 'application/json', 'api-secret': API_SECRET }, JSON.stringify({ apiKey: API_KEY }));
-        const jwtAccessToken = tokenRes.data?.data?.accessToken;
-        if (!jwtAccessToken) return res.status(500).json({ error: 'No accessToken found.' });
+        const tokenUrl = 'https://api-stg.transak.com/partners/api/v2/refresh-token';[cite: 5]
+        const tokenRes = await makeHttpPostRequest(tokenUrl, { 'Content-Type': 'application/json', 'accept': 'application/json', 'api-secret': API_SECRET }, JSON.stringify({ apiKey: API_KEY }));[cite: 5]
+        const jwtAccessToken = tokenRes.data?.data?.accessToken;[cite: 5]
+        if (!jwtAccessToken) return res.status(500).json({ error: 'No accessToken found.' });[cite: 5]
 
-        const sessionUrl = 'https://api-gateway-stg.transak.com/api/v2/auth/session';
+        const sessionUrl = 'https://api-gateway-stg.transak.com/api/v2/auth/session';[cite: 5]
         const sessionBody = JSON.stringify({
             widgetParams: {
-                apiKey: API_KEY, referrerDomain: "com.nopay.app", walletAddress: walletAddress.trim(),
-                email: email.trim(), network: 'base', cryptoCurrencyCode: cryptoCurrencyCode || 'USDC',
-                fiatCurrency: fiatCurrency || 'USD', themeColor: '000000', productsAvailed: 'buy', environment: 'STAGING'
+                apiKey: API_KEY, referrerDomain: "com.nopay.app", walletAddress: walletAddress.trim(),[cite: 5]
+                email: email.trim(), network: 'base', cryptoCurrencyCode: cryptoCurrencyCode || 'USDC',[cite: 5]
+                fiatCurrency: fiatCurrency || 'USD', themeColor: '000000', productsAvailed: 'buy', environment: 'STAGING'[cite: 5]
             }
         });
 
-        const sessionRes = await makeHttpPostRequest(sessionUrl, { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'access-token': jwtAccessToken, 'x-user-ip': userIp }, sessionBody);
-        if (sessionRes.statusCode === 200 && sessionRes.data?.data?.widgetUrl) {
-            return res.status(200).json({ url: sessionRes.data.data.widgetUrl });
+        const sessionRes = await makeHttpPostRequest(sessionUrl, { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'access-token': jwtAccessToken, 'x-user-ip': userIp }, sessionBody);[cite: 5]
+        if (sessionRes.statusCode === 200 && sessionRes.data?.data?.widgetUrl) {[cite: 5]
+            return res.status(200).json({ url: sessionRes.data.data.widgetUrl });[cite: 5]
         } else {
-            return res.status(sessionRes.statusCode).json({ error: 'Transak Rejected' });
+            return res.status(sessionRes.statusCode).json({ error: 'Transak Rejected' });[cite: 5]
         }
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });[cite: 5]
     }
 });
 
-module.exports = app;
+module.exports = app;[cite: 5]

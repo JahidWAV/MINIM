@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const https = require('https');
@@ -9,14 +8,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Distribution native et isolée du dossier public[cite: 5]
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));[cite: 5]
+});
+
+app.get('/api', (req, res) => {
+    res.status(200).send('NoPay Privy & Transak Server Operational (Staging).');[cite: 5]
 });
 
 // ========================================================
-// 🔒 PASSERELLE SECRÈTE API HEADLESS PRIVY CORRIGÉE
+// 🔒 PASSERELLE SECRÈTE API HEADLESS PRIVY NATIVE
 // ========================================================
 const PRIVY_APP_ID = "cmqollwmd000s0cky0evrjnkd";
 const PRIVY_APP_SECRET = (process.env.PRIVY_APP_SECRET || "").trim(); 
@@ -82,7 +86,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 });
 
 // ========================================================
-// 🚀 ROUTE TRANSAK SÉCURISÉE (INCHANGÉE)[cite: 5]
+// 🚀 ROUTE TRANSAK SÉCURISÉE NATIVE[cite: 5]
 // ========================================================
 function makeHttpPostRequest(urlStr, headers, bodyData) {
     return new Promise((resolve, reject) => {

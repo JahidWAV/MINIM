@@ -15,10 +15,20 @@
             background-color: #F4F5F7;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #020202;
-            min-h: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+        }
+        
+        /* LANDING PAGE STRUCTURAL CADRAGE */
+        #landing-page {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            flex: 1;
         }
         
         /* NAVBAR PERFECT ALIGNMENT */
@@ -295,15 +305,13 @@
         });
 
         function openWebApp() {
-            document.getElementById('web-app-portal').style.display = 'block';
-            document.getElementById('landing-page').style.display = 'none';
+            document.getElementById('landing-page').style.setProperty('display', 'none', 'important');
+            document.getElementById('web-app-portal').style.setProperty('display', 'block', 'important');
         }
 
         function closeWebApp() {
-            document.getElementById('web-app-portal').style.display = 'none';
-            // 🌟 FIX CLÉ : On force le mode 'flex' pour ré-étaler proprement la landing sur tout l'écran
-            document.getElementById('landing-page').style.display = 'flex';
-        }
+            document.getElementById('web-app-portal').style.setProperty('display', 'none', 'important');
+            document.getElementById('landing-page').style.setProperty('display', 'flex', 'important');
         }
 
         // CONTROL DES ENVOIS OTP EMAIL

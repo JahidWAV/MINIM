@@ -301,7 +301,9 @@
 
         function closeWebApp() {
             document.getElementById('web-app-portal').style.display = 'none';
+            // 🌟 FIX CLÉ : On force le mode 'flex' pour ré-étaler proprement la landing sur tout l'écran
             document.getElementById('landing-page').style.display = 'flex';
+        }
         }
 
         // CONTROL DES ENVOIS OTP EMAIL

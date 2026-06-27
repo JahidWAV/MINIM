@@ -6,7 +6,7 @@
     <title>Koppi — Stablecoins for everyone</title>
     <!-- Ethers.js pour Base Sepolia -->
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="text/javascript"></script>
-    <!-- SDK Privy Web -->
+    <!-- SDK Privy Web Écosystème -->
     <script src="https://auth.privy.io/widget.js"></script>
     <style>
         /* BASE DESIGN SYSTEM */
@@ -146,20 +146,16 @@
             background: #ffffff;
             border: 1px solid rgba(0,0,0,0.03);
             border-radius: 28px;
-            padding: 32px 24px;
+            padding: 42px 32px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.02);
             text-align: center;
         }
         
         /* AUTH INPUT FIELDS UI FINTECH */
-        .app-card h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
-        .app-card p { font-size: 13px; color: #888888; margin-bottom: 24px; }
-        .input-field {
-            width: 100%; height: 50px; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 12px;
-            padding: 0 16px; font-size: 14px; outline: none; margin-bottom: 12px; text-align: center; transition: all 0.2s;
-        }
-        .input-field:focus { background: #fff; border-color: rgba(0,0,0,0.1); }
-        .btn-submit { width: 100%; height: 50px; background: #020202; color: #fff; font-size: 13px; font-weight: 700; border-radius: 25px; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .app-card h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; color: #020202; }
+        .app-card p { font-size: 13px; color: #888888; margin-bottom: 32px; line-height: 1.5; }
+        .btn-submit { width: 100%; height: 50px; background: #020202; color: #fff; font-size: 13px; font-weight: 700; border-radius: 25px; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: background 0.2s; }
+        .btn-submit:hover { background: #222222; }
 
         /* WALLET VIEW GRID STYLE IPHONE */
         .account-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #888888; margin-bottom: 16px; }
@@ -242,24 +238,11 @@
                 <button id="close-portal-btn" onclick="closeWebApp()" class="btn-exit">Exit</button>
             </header>
 
-            <!-- FORMULAIRE DE CONNEXION OTP -->
+            <!-- BOÎTE DE DIALOGUE DE CONNEXION OPTIMISÉE -->
             <div id="auth-view" class="app-card">
                 <h2>Connect to Koppi</h2>
-                <p>Access your decentralized balance instantly via email security token.</p>
-                
-                <!-- Étape Mail -->
-                <div id="email-step">
-                    <input type="email" id="email-input" class="input-field" placeholder="Enter your email address" autocomplete="off">
-                    <button id="send-code-btn" class="btn-submit">Continue</button>
-                </div>
-
-                <!-- Étape Code OTP -->
-                <div id="otp-step" class="hidden">
-                    <input type="text" id="otp-input" class="input-field" style="letter-spacing: 4px; font-weight: bold; font-size: 16px;" placeholder="000000" maxlength="6" autocomplete="off">
-                    <div id="status-message" style="font-size: 11px; margin-bottom: 12px; color: #888888;"></div>
-                    <button id="verify-code-btn" class="btn-submit">Verify and Connect</button>
-                    <button id="back-btn" class="btn-exit" style="margin-top: 16px; width: 100%;">Go Back</button>
-                </div>
+                <p>Access your non-custodial operational environment. Verify your account via a secure email OTP token code or passkeys.</p>
+                <button id="login-trigger-btn" class="btn-submit">Sign in or Register</button>
             </div>
 
             <!-- DASHBOARD FINTECH SYNCHRONISÉ (1930.50$) -->
@@ -297,11 +280,17 @@
         const RPC_URL = "https://sepolia.base.org";
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
+        // Initialisation standard et robuste de Privy
         const privy = window.PrivyWidget({
             appId: PRIVY_APP_ID,
             onSuccess: (user) => {
                 renderDashboard(user);
             }
+        });
+
+        // Déclenchement de la mire d'authentification Privy native (E-mail OTP / Passkey)
+        document.getElementById('login-trigger-btn').addEventListener('click', () => {
+            privy.login();
         });
 
         function openWebApp() {
@@ -313,52 +302,6 @@
             document.getElementById('web-app-portal').style.setProperty('display', 'none', 'important');
             document.getElementById('landing-page').style.setProperty('display', 'flex', 'important');
         }
-
-        // CONTROL DES ENVOIS OTP EMAIL
-        const emailInput = document.getElementById('email-input');
-        const otpInput = document.getElementById('otp-input');
-        const emailStep = document.getElementById('email-step');
-        const otpStep = document.getElementById('otp-step');
-        const statusMessage = document.getElementById('status-message');
-
-        document.getElementById('send-code-btn').addEventListener('click', async () => {
-            const email = emailInput.value.trim().toLowerCase();
-            if (!email.includes('@')) return;
-            document.getElementById('send-code-btn').innerText = "SENDING...";
-            try {
-                await privy.auth.sendCode({ email: email });
-                emailStep.classList.add('hidden');
-                otpStep.classList.remove('hidden');
-                statusMessage.innerText = "Code dispatched via Privy.";
-            } catch (err) {
-                emailStep.classList.add('hidden');
-                otpStep.classList.remove('hidden');
-                statusMessage.innerText = "Check your email inbox.";
-            } finally {
-                document.getElementById('send-code-btn').innerText = "CONTINUE";
-            }
-        });
-
-        document.getElementById('verify-code-btn').addEventListener('click', async () => {
-            const code = otpInput.value.trim();
-            const email = emailInput.value.trim().toLowerCase();
-            if (code.length !== 6) return;
-            document.getElementById('verify-code-btn').innerText = "VERIFYING...";
-            try {
-                const user = await privy.auth.loginWithCode({ code: code, email: email });
-                renderDashboard(user);
-            } catch (err) {
-                statusMessage.innerText = "Authentication code rejected.";
-                document.getElementById('verify-code-btn').innerText = "VERIFY AND CONNECT";
-            }
-        });
-
-        document.getElementById('back-btn').addEventListener('click', () => {
-            otpStep.classList.add('hidden');
-            emailStep.classList.remove('hidden');
-            otpInput.value = "";
-            statusMessage.innerText = "";
-        });
 
         document.getElementById('buy-btn').addEventListener('click', () => {
             privy.openFunding({ method: 'moonpay' });

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Koppi — Stablecoins for everyone</title>
-    <!-- Tailwind CSS v4 CDN -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- Ethers.js pour Base Sepolia -->
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="text/javascript"></script>
@@ -12,185 +12,176 @@
     <script src="https://auth.privy.io/widget.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
         body {
-            background-color: #F8F9FA;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            color: #0B0B0C;
-            overflow-x: hidden;
+            background-color: #F4F5F7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #020202;
         }
-        /* Effet de fondu et de transition Web3 */
-        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .slide-card {
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .slide-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.04);
+        /* Fix d'alignement pour l'exposant des centimes */
+        .baseline-up {
+            vertical-align: super;
+            font-size: 0.55em;
+            line-height: 0;
+            position: relative;
+            top: -0.4em;
+            margin-left: 2px;
         }
     </style>
 </head>
-<body class="antialiased">
+<body class="antialiased min-h-screen flex flex-col justify-between">
 
-    <!-- LANDING PAGE PRINCIPALE -->
-    <div id="landing-page" class="min-h-screen flex flex-col justify-between">
-        <!-- NAVIGATION BAR BARRE FIXE -->
-        <nav class="fixed top-0 left-0 right-0 h-20 bg-[#F8F9FA]/80 backdrop-blur-md z-40 px-6 md:px-12 flex justify-between items-center border-b border-black/[0.03]">
-            <div class="text-xl font-medium tracking-[0.4em] uppercase select-none">Koppi</div>
-            <div class="flex items-center gap-8">
-                <a href="#features" class="text-sm font-medium text-gray-500 hover:text-black transition-colors hidden md:inline">Features</a>
-                <a href="#infrastructure" class="text-sm font-medium text-gray-500 hover:text-black transition-colors hidden md:inline">Security</a>
-                <button onclick="openWebApp()" class="h-10 px-5 bg-[#0B0B0C] text-white text-xs font-semibold rounded-full hover:bg-neutral-800 transition-all shadow-sm tracking-wide">
+    <!-- ========================================== -->
+    <!-- 1. LANDING PAGE SÉCURISÉE & CADRÉE -->
+    <!-- ========================================== -->
+    <div id="landing-page" class="w-full flex flex-col justify-between min-h-screen">
+        <!-- Barre de Navigation de la Vitrine -->
+        <nav class="w-full h-20 bg-[#F4F5F7]/80 backdrop-blur-md sticky top-0 z-40 px-6 md:px-12 flex justify-between items-center border-b border-black/[0.03]">
+            <div class="text-lg font-bold tracking-[0.3em] uppercase select-none">Koppi</div>
+            <div class="flex items-center gap-6">
+                <a href="#features" class="text-xs font-semibold text-gray-400 hover:text-black transition-colors uppercase tracking-wider hidden sm:inline">Features</a>
+                <button onclick="openWebApp()" class="h-10 px-5 bg-[#020202] text-white text-xs font-bold rounded-full hover:bg-neutral-800 transition-all tracking-wider uppercase shadow-sm cursor-pointer">
                     OPEN WEB APP
                 </button>
             </div>
         </nav>
 
-        <!-- HERO SECTION -->
-        <main class="flex-1 pt-36 max-w-5xl w-full mx-auto px-6">
-            <div class="text-center space-y-6 max-w-3xl mx-auto py-12 fade-in">
-                <div class="inline-flex items-center gap-2 px-3 py-1 bg-white border border-black/[0.04] rounded-full text-[11px] font-semibold tracking-wider text-gray-400 uppercase">
+        <!-- Contenu Principal Vitrine -->
+        <main class="flex-1 max-w-4xl w-full mx-auto px-6 pt-16 pb-24">
+            <!-- Hero Title block -->
+            <div class="text-center space-y-6 max-w-2xl mx-auto mb-20">
+                <div class="inline-flex items-center px-3 py-1 bg-white border border-black/[0.04] rounded-full text-[10px] font-bold tracking-widest text-gray-400 uppercase shadow-xs">
                     ⚡ Now Live on Base Sepolia
                 </div>
-                <h1 class="text-5xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05] text-[#0B0B0C]">
+                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-[#020202] leading-tight">
                     Make stablecoins your everyday money
                 </h1>
-                <p class="text-gray-500 text-lg md:text-xl font-normal max-w-xl mx-auto leading-relaxed">
-                    Access USD, buy instantly, and spend globally using secure keyless infrastructure. No hardware required.
+                <p class="text-gray-500 text-base md:text-lg max-w-lg mx-auto leading-relaxed font-normal">
+                    Access USD, buy instantly, and spend globally using secure keyless infrastructure. No seeds, no backups.
                 </p>
-                <div class="pt-4">
-                    <button onclick="openWebApp()" class="h-14 px-8 bg-[#0B0B0C] text-white text-sm font-semibold rounded-full hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md">
-                        Get Started Instantly
+                <div class="pt-2">
+                    <button onclick="openWebApp()" class="h-12 px-8 bg-[#020202] text-white text-xs font-bold rounded-full hover:bg-neutral-800 transition-all uppercase tracking-wider shadow-md cursor-pointer">
+                        Get Started
                     </button>
                 </div>
             </div>
 
-            <!-- SLIDESHOW INTERACTIF DES AVANTAGES -->
-            <section id="features" class="py-20 border-t border-black/[0.04] mt-12">
-                <div class="text-center mb-12">
-                    <h2 class="text-xs font-bold tracking-[0.2em] text-gray-400 uppercase">The Koppi Standard</h2>
+            <!-- Grille des caractéristiques techniques (Features) -->
+            <div id="features" class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12 border-t border-black/[0.04]">
+                <div class="bg-white border border-black/[0.03] rounded-2xl p-6 shadow-xs">
+                    <div class="text-xl mb-3">🔑</div>
+                    <h3 class="text-sm font-bold uppercase tracking-wider mb-2 text-[#020202]">Non-Custodial</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">Secured completely by your email passkey or Face ID. Absolute sovereign wallet architecture engineered via Privy.</p>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <!-- Slide 1 -->
-                    <div class="slide-card bg-white border border-black/[0.03] rounded-3xl p-8 space-y-4">
-                        <div class="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-xl">🔑</div>
-                        <h3 class="text-lg font-bold">Keyless & Non-Custodial</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Your account is secured by Face ID or your email passkey. You retain absolute sovereign control over your funds without handling raw seeds.</p>
-                    </div>
-                    <!-- Slide 2 -->
-                    <div class="slide-card bg-white border border-black/[0.03] rounded-3xl p-8 space-y-4">
-                        <div class="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-xl">🌐</div>
-                        <h3 class="text-lg font-bold">Built on Base</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Leveraging Ethereum L2 technology to offer sub-cent network transaction fees and near-instantaneous global asset processing settlements.</p>
-                    </div>
-                    <!-- Slide 3 -->
-                    <div class="slide-card bg-white border border-black/[0.03] rounded-3xl p-8 space-y-4">
-                        <div class="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-xl">💳</div>
-                        <h3 class="text-lg font-bold">Native MoonPay On-Ramp</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Load your wallet with a credit card or Apple Pay in a flash. Smooth onboarding with minimized verification layers directly integrated.</p>
-                    </div>
+                <div class="bg-white border border-black/[0.03] rounded-2xl p-6 shadow-xs">
+                    <div class="text-xl mb-3">⚓</div>
+                    <h3 class="text-sm font-bold uppercase tracking-wider mb-2 text-[#020202]">Base Network</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">Sub-cent on-chain gas costs with processing settlements deployed instantly on Coinbase's Ethereum L2.</p>
                 </div>
-            </section>
+                <div class="bg-white border border-black/[0.03] rounded-2xl p-6 shadow-xs">
+                    <div class="text-xl mb-3">💳</div>
+                    <h3 class="text-sm font-bold uppercase tracking-wider mb-2 text-[#020202]">MoonPay Flow</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed">Skip tedious verification structures. Fund your account with credit cards or Apple Pay natively inside the wallet view.</p>
+                </div>
+            </div>
         </main>
 
-        <!-- FOOTER VITRINE -->
-        <footer class="border-t border-black/[0.04] bg-white py-12 px-6 text-center text-xs text-gray-400 space-y-4">
-            <p>© 2026 Koppi Technologies. Powered by Base Network and Privy Infrastructure.</p>
+        <!-- Footer global de la vitrine -->
+        <footer class="w-full border-t border-black/[0.03] bg-white py-8 text-center text-[11px] text-gray-400 tracking-wide">
+            © 2026 Koppi Technologies. Powered by Base Network and Privy Infrastructure.
         </footer>
     </div>
 
 
-    <!-- ======================================================== -->
-    <!-- SECURE WEB APP PORTAL (MODAL PLEIN ÉCRAN) -->
-    <!-- ======================================================== -->
-    <div id="web-app-portal" class="fixed inset-0 bg-[#F4F5F7] z-50 hidden overflow-y-auto p-6 md:p-12">
-        <div class="max-w-md w-full mx-auto pt-6 flex flex-col min-h-full justify-between">
+    <!-- ========================================== -->
+    <!-- 2. SECURE WEB APP GATEWAY (DASHBOARD PARFAIT) -->
+    <!-- ========================================== -->
+    <div id="web-app-portal" class="fixed inset-0 bg-[#F4F5F7] z-50 hidden overflow-y-auto px-4 py-8">
+        <div class="max-w-md w-full mx-auto flex flex-col justify-between min-h-full">
             
-            <!-- App Header -->
-            <header class="flex justify-between items-center w-full">
-                <div class="text-lg font-medium tracking-[0.4em] uppercase">Koppi App</div>
-                <div id="user-avatar" class="w-8 h-8 rounded-full bg-purple-500/15 flex items-center justify-center text-sm hidden">🧝‍♀️</div>
-                <button id="close-portal-btn" onclick="closeWebApp()" class="text-xs font-semibold text-gray-400 hover:text-black transition-colors uppercase tracking-wider">Exit</button>
+            <!-- App Portal Header -->
+            <header class="flex justify-between items-center w-full mb-8">
+                <div class="text-base font-bold tracking-[0.3em] uppercase">Koppi App</div>
+                <button id="close-portal-btn" onclick="closeWebApp()" class="text-[11px] font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-widest cursor-pointer">Exit</button>
             </header>
 
-            <!-- AUTH SCREEN COMPONENT -->
-            <div id="auth-view" class="w-full py-16 space-y-6">
-                <div class="space-y-2">
-                    <h2 class="text-3xl font-bold tracking-tight">Connect to Koppi</h2>
-                    <p class="text-gray-400 text-sm">Access your non-custodial operational environment securely via Magic OTP.</p>
+            <!-- AUTH VIEWS (LOGIN / OTP FLUIDE) -->
+            <div id="auth-view" class="w-full my-auto space-y-6 bg-white border border-black/[0.03] rounded-3xl p-8 shadow-sm">
+                <div class="space-y-1">
+                    <h2 class="text-2xl font-bold tracking-tight">Connect to Koppi</h2>
+                    <p class="text-gray-400 text-xs leading-relaxed">Enter your credentials to interact securely with your decentralized assets.</p>
                 </div>
                 
-                <!-- Step 1: Mail Input -->
-                <div id="email-step" class="space-y-4">
-                    <input type="email" id="email-input" class="w-full h-14 bg-black/[0.03] border border-transparent rounded-xl px-4 text-base outline-none focus:bg-white focus:border-black/10 transition-all placeholder-gray-400" placeholder="Enter your email address" autocomplete="off">
-                    <button id="send-code-btn" class="w-full h-14 bg-[#0B0B0C] text-white font-semibold rounded-full hover:bg-neutral-800 transition-colors">Continue</button>
+                <!-- Saisie e-mail -->
+                <div id="email-step" class="space-y-3">
+                    <input type="email" id="email-input" class="w-full h-12 bg-black/[0.03] border border-transparent rounded-xl px-4 text-sm outline-none focus:bg-white focus:border-black/10 transition-all placeholder-gray-400" placeholder="Enter your email address" autocomplete="off">
+                    <button id="send-code-btn" class="w-full h-12 bg-[#020202] text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer">Continue</button>
                 </div>
 
-                <!-- Step 2: OTP Input -->
+                <!-- Saisie OTP -->
                 <div id="otp-step" class="space-y-4 hidden">
-                    <input type="text" id="otp-input" class="w-full h-14 bg-black/[0.03] border border-transparent rounded-xl px-4 text-center font-mono text-xl tracking-[0.3em] font-bold outline-none focus:bg-white focus:border-black/10 transition-all placeholder-gray-400" placeholder="000000" maxlength="6" autocomplete="off">
-                    <div id="status-message" class="text-xs text-gray-400 text-center"></div>
-                    <button id="verify-code-btn" class="w-full h-14 bg-[#0B0B0C] text-white font-semibold rounded-full hover:bg-neutral-800 transition-colors">Verify and Connect</button>
-                    <button id="back-btn" class="w-full text-center text-xs font-semibold text-gray-400 hover:text-black transition-colors">Go back</button>
+                    <input type="text" id="otp-input" class="w-full h-12 bg-black/[0.03] border border-transparent rounded-xl px-4 text-center font-mono text-lg tracking-[0.4em] font-bold outline-none focus:bg-white focus:border-black/10 transition-all placeholder-gray-400" placeholder="000000" maxlength="6" autocomplete="off">
+                    <div id="status-message" class="text-xs text-center font-medium text-gray-400"></div>
+                    <button id="verify-code-btn" class="w-full h-12 bg-[#020202] text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-neutral-800 transition-colors cursor-pointer">Verify and Connect</button>
+                    <button id="back-btn" class="w-full text-center text-[11px] font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-widest cursor-pointer">Go back</button>
                 </div>
             </div>
 
-            <!-- DASHBOARD SCREEN COMPONENT (DÉJÀ VALIDE & SYNCHRONISÉ) -->
-            <div id="dashboard-view" class="w-full space-y-8 hidden py-12">
-                <!-- Boîtier de Solde Premium Blanc -->
-                <div class="bg-white border border-black/[0.03] rounded-[28px] p-8 text-center space-y-5 shadow-sm">
-                    <div class="flex items-first-baseline justify-center font-bold text-5xl tracking-tight text-[#0B0B0C]">
-                        <span id="balance-int">0</span><span id="balance-frac" class="text-2xl text-gray-400 font-bold align-super -translate-y-3">.00$</span>
+            <!-- DASHBOARD CLAIR PREMIUM (Inspiré de Screenshot 2026-06-26 at 13.51.03.jpg) -->
+            <div id="dashboard-view" class="w-full space-y-8 hidden">
+                <!-- Boîtier de Solde Blanc Arrondi Excentré -->
+                <div class="bg-white border border-black/[0.03] rounded-[24px] p-6 text-center shadow-xs">
+                    <div class="w-full flex justify-center items-center gap-1 text-gray-400 font-bold text-xs uppercase tracking-widest mb-4">
+                        <span class="text-xs">🧝‍♀️</span> account active
                     </div>
-                    <div id="wallet-address" class="text-[11px] font-mono text-gray-400 tracking-wider font-medium">0X0000...0000</div>
                     
-                    <div class="flex gap-3 pt-3">
-                        <button id="buy-btn" class="flex-1 h-12 bg-[#0B0B0C] text-white font-semibold rounded-xl flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
-                            Add Money
+                    <!-- Rendu du Solde Réel à 18 décimales avec exposant -->
+                    <div class="font-bold text-4xl tracking-tight text-[#020202]">
+                        <span id="balance-int">0</span><span id="balance-frac" class="baseline-up font-bold text-gray-400">.00$</span>
+                    </div>
+                    
+                    <div id="wallet-address" class="text-[10px] font-mono text-gray-400 tracking-wider font-semibold mt-2">0X000...000</div>
+                    
+                    <!-- Boutons d'actions épurés -->
+                    <div class="grid grid-cols-2 gap-3 pt-5">
+                        <button id="buy-btn" class="h-11 bg-[#020202] text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-xs cursor-pointer flex items-center justify-center gap-1.5">
+                            <span>➔</span> Add Money
                         </button>
-                        <button class="flex-1 h-12 bg-black/[0.04] text-[#0B0B0C] font-semibold rounded-xl flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
-                            Transfer
+                        <button class="h-11 bg-black/[0.04] text-[#020202] font-bold rounded-xl text-xs uppercase tracking-wider shadow-xs cursor-pointer flex items-center justify-center gap-1.5">
+                            <span>✈</span> Transfer
                         </button>
                     </div>
                 </div>
 
-                <!-- Recent On-Chain Activity Stack -->
-                <div class="space-y-4">
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Recent Activity</h3>
-                    <div id="tx-list" class="bg-white border border-black/[0.03] rounded-2xl divide-y divide-black/[0.03] overflow-hidden shadow-sm">
-                        <div id="no-tx" class="p-8 text-center text-xs text-gray-400 tracking-wide">No transactions found on Base Sepolia</div>
+                <!-- Recent On-Chain Activity Feed -->
+                <div class="space-y-3">
+                    <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Recent Activity</h3>
+                    <div id="tx-list" class="bg-white border border-black/[0.03] rounded-2xl divide-y divide-black/[0.03] overflow-hidden shadow-xs">
+                        <div id="no-tx" class="p-8 text-center text-xs text-gray-400 tracking-wide font-medium">No transactions found on Base Sepolia</div>
                     </div>
                 </div>
             </div>
 
-            <div></div> <!-- Spacer pour conserver l'équilibre du flex layout -->
+            <div></div> <!-- Assure l'équilibre parfait du flexbox layout -->
         </div>
     </div>
 
-
-    <!-- LOGIQUE WEB3 IMMERSIVE & INTÉGRATION PRIVY -->
+    <!-- LOGIQUE WEB3 SÉCURISÉE SANS OVERFLOW -->
     <script>
-        const PRIVY_APP_ID = "ton-privy-app-id"; // Mets ton identifiant Privy exact ici
+        const PRIVY_APP_ID = "ton-privy-app-id"; // Remplace par ton App ID Privy réel
         const USDC_CONTRACT = "0xD733D48f2a7F57D4559F98ae07f87Dab595E3523";
         const RPC_URL = "https://sepolia.base.org";
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-        // Instanciation de l'écosystème Privy
         const privy = window.PrivyWidget({
             appId: PRIVY_APP_ID,
             onSuccess: (user) => {
-                dispatchDashboard(user);
+                injectDashboardEnvironment(user);
             }
         });
 
         function openWebApp() {
             document.getElementById('web-app-portal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Bloquer le défilement de la landing
+            document.body.style.overflow = 'hidden';
         }
 
         function closeWebApp() {
@@ -198,7 +189,7 @@
             document.body.style.overflow = 'auto';
         }
 
-        // --- GESTION PIPELINE INPUTS & OTP ---
+        // --- PIPELINE D'INPUTS PRIVY PROGRAMMATIQUE ---
         const emailInput = document.getElementById('email-input');
         const otpInput = document.getElementById('otp-input');
         const emailStep = document.getElementById('email-step');
@@ -208,19 +199,18 @@
         document.getElementById('send-code-btn').addEventListener('click', async () => {
             const email = emailInput.value.trim().toLowerCase();
             if (!email.includes('@')) return;
-
-            document.getElementById('send-code-btn').innerText = "Sending code...";
+            document.getElementById('send-code-btn').innerText = "SENDING...";
             try {
                 await privy.auth.sendCode({ email: email });
                 emailStep.classList.add('hidden');
                 otpStep.classList.remove('hidden');
-                statusMessage.innerText = "Code dispatched via Privy!";
+                statusMessage.innerText = "Code forwarded via Privy!";
             } catch (err) {
                 emailStep.classList.add('hidden');
                 otpStep.classList.remove('hidden');
-                statusMessage.innerText = "Check your email for the code.";
+                statusMessage.innerText = "Check your email inbox.";
             } finally {
-                document.getElementById('send-code-btn').innerText = "Continue";
+                document.getElementById('send-code-btn').innerText = "CONTINUE";
             }
         });
 
@@ -228,14 +218,13 @@
             const code = otpInput.value.trim();
             const email = emailInput.value.trim().toLowerCase();
             if (code.length !== 6) return;
-
-            document.getElementById('verify-code-btn').innerText = "Verifying...";
+            document.getElementById('verify-code-btn').innerText = "VERIFYING...";
             try {
                 const user = await privy.auth.loginWithCode({ code: code, email: email });
-                dispatchDashboard(user);
+                injectDashboardEnvironment(user);
             } catch (err) {
-                statusMessage.innerText = "Authentication anomaly. Re-check code.";
-                document.getElementById('verify-code-btn').innerText = "Verify and Connect";
+                statusMessage.innerText = "Invalid security token. Re-enter.";
+                document.getElementById('verify-code-btn').innerText = "VERIFY AND CONNECT";
             }
         });
 
@@ -250,49 +239,48 @@
             privy.openFunding({ method: 'moonpay' });
         });
 
-        // --- INJECTION DE L'EXPÉRIENCE DASHBOARD SYNC ---
-        function dispatchDashboard(user) {
+        // --- DASHBOARD RENDERING AND ENGINE ---
+        function injectDashboardEnvironment(user) {
             document.getElementById('auth-view').classList.add('hidden');
             document.getElementById('dashboard-view').classList.remove('hidden');
-            document.getElementById('user-avatar').classList.remove('hidden');
             document.getElementById('close-portal-btn').innerText = "Disconnect";
             
-            // Mutation de l'action de sortie si connecté
             document.getElementById('close-portal-btn').onclick = () => {
                 privy.logout();
                 location.reload();
             };
 
-            const targetAddress = user.embeddedWallets?.[0]?.address || user.wallets?.[0]?.address;
-            if (targetAddress) {
-                document.getElementById('wallet-address').innerText = targetAddress.substring(0, 8).toUpperCase() + '...' + targetAddress.substring(targetAddress.length - 8).toUpperCase();
-                runBlockchainQueries(targetAddress);
+            const userWallet = user.embeddedWallets?.[0]?.address || user.wallets?.[0]?.address;
+            if (userWallet) {
+                document.getElementById('wallet-address').innerText = userWallet.substring(0, 8).toUpperCase() + '...' + userWallet.substring(userWallet.length - 8).toUpperCase();
+                triggerBlockchainSync(userWallet);
             }
         }
 
-        async function runBlockchainQueries(walletAddress) {
+        async function triggerBlockchainSync(walletAddress) {
             try {
-                // Lecture à 18 décimales pour Koppi contract sur Base Sepolia
+                // Lecture mathématique stricte à 18 décimales pour ton jeton de test Base Sepolia
                 const abi = ["function balanceOf(address owner) view returns (uint256)"];
                 const contract = new ethers.Contract(USDC_CONTRACT, abi, provider);
-                const raw = await contract.balanceOf(walletAddress);
+                const balanceRaw = await contract.balanceOf(walletAddress);
                 
-                const parsed = ethers.utils.formatUnits(raw, 18);
-                const segments = parseFloat(parsed).toFixed(2).split('.');
+                const parsed = ethers.utils.formatUnits(balanceRaw, 18);
+                const parts = parseFloat(parsed).toFixed(2).split('.');
                 
-                document.getElementById('balance-int').innerText = segments[0];
-                document.getElementById('balance-frac').innerText = '.' + segments[1] + '$';
+                // Rendu précis style iPhone
+                document.getElementById('balance-int').innerText = parts[0];
+                document.getElementById('balance-frac').innerText = '.' + parts[1] + '$';
 
                 syncActivityLogs(walletAddress);
-            } catch (error) {
-                console.error("RPC Query Fault:", error);
+            } catch (err) {
+                console.error("Sync Failure:", err);
             }
         }
 
         async function syncActivityLogs(walletAddress) {
             try {
                 const transferTopic = ethers.utils.id("Transfer(address,address,uint256)");
-                const hexWallet = ethers.utils.hexZeroPad(walletAddress, 32).toLowerCase();
+                const paddedAddress = ethers.utils.hexZeroPad(walletAddress, 32).toLowerCase();
                 
                 const logs = await provider.getLogs({
                     address: USDC_CONTRACT,
@@ -301,38 +289,38 @@
                     topics: [transferTopic]
                 });
 
-                const filtered = logs.filter(log => 
-                    log.topics[1].toLowerCase() === hexWallet || log.topics[2].toLowerCase() === hexWallet
+                const relatedLogs = logs.filter(log => 
+                    log.topics[1].toLowerCase() === paddedAddress || log.topics[2].toLowerCase() === paddedAddress
                 ).reverse();
 
-                if (filtered.length > 0) {
+                if (relatedLogs.length > 0) {
                     const list = document.getElementById('tx-list');
                     list.innerHTML = "";
                     
-                    filtered.slice(0, 8).forEach(log => {
-                        const isReceive = log.topics[2].toLowerCase() === hexWallet;
+                    relatedLogs.slice(0, 6).forEach(log => {
+                        const incoming = log.topics[2].toLowerCase() === paddedAddress;
                         const value = ethers.BigNumber.from(log.data);
                         const cleanAmount = ethers.utils.formatUnits(value, 18);
                         
-                        const element = document.createElement('div');
-                        element.className = "p-5 flex justify-between items-center text-sm";
-                        element.innerHTML = `
+                        const row = document.createElement('div');
+                        row.className = "p-4 flex justify-between items-center text-xs";
+                        row.innerHTML = `
                             <div class="flex items-center gap-3">
-                                <span class="w-8 h-8 rounded-xl bg-neutral-50 flex items-center justify-center text-xs">${isReceive ? '📥' : '📤'}</span>
+                                <span class="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center font-medium">${incoming ? '📥' : '📤'}</span>
                                 <div>
-                                    <div class="font-semibold text-neutral-900">${isReceive ? 'Received' : 'Sent'}</div>
-                                    <div class="text-[11px] font-medium text-gray-400">USDC • Base Network</div>
+                                    <div class="font-bold text-neutral-900">${incoming ? 'Received' : 'Sent'}</div>
+                                    <div class="text-[10px] text-gray-400 font-medium">USDC • Base Network</div>
                                 </div>
                             </div>
-                            <div class="font-bold tracking-tight ${isReceive ? 'text-emerald-500' : 'text-[#0B0B0C]'}">
-                                ${isReceive ? '+' : '-'} ${parseFloat(cleanAmount).toFixed(2)}$
+                            <div class="font-bold tracking-tight ${incoming ? 'text-emerald-500' : 'text-[#020202]'}">
+                                ${incoming ? '+' : '-'} ${parseFloat(cleanAmount).toFixed(2)}$
                             </div>
                         `;
-                        list.appendChild(element);
+                        list.appendChild(row);
                     });
                 }
-            } catch (err) {
-                console.error("Activity stream exception:", err);
+            } catch (error) {
+                console.error("Log error:", error);
             }
         }
     </script>

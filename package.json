@@ -1,10 +1,21 @@
 {
-  "name": "nopay-backend",
+  "name": "koppi-app",
   "version": "1.0.0",
+  "private": true,
   "dependencies": {
-    "@privy-io/server-auth": "latest",
+    "@privy-io/react-auth": "^2.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "ethers": "^5.7.2",
+    "express": "^4.19.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.3.1"
+  },
+  "scripts": {
+    "build": "vite build"
   }
 }

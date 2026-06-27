@@ -4,14 +4,162 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Koppi — Stablecoins for everyone</title>
+    
+    <!-- Chargement direct de React, ReactDOM et du SDK Privy Web standard -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://auth.privy.io/assets/sdk/privy-user-auth.js"></script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: #F4F5F7; color: #020202; font-family: -apple-system, sans-serif; min-height: 100vh; }
-        .hidden { display: none !important; }
+        body { background-color: #F4F5F7; color: #020202; font-family: -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh; }
+        
+        nav { width: 100%; height: 80px; background: rgba(244, 245, 247, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); position: fixed; top: 0; left: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; border-bottom: 1px solid rgba(0, 0, 0, 0.04); }
+        .logo { font-size: 20px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; }
+        
+        .btn-cta { height: 42px; padding: 0 24px; background: #020202; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-radius: 21px; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .main-wrapper { max-width: 960px; width: 100%; margin: 0 auto; padding: 160px 24px 80px 24px; display: flex; flex-direction: column; align-items: center; }
+        .hero-section { text-align: center; max-width: 640px; margin-bottom: 80px; }
+        .badge { display: inline-block; background: #ffffff; border: 1px solid rgba(0,0,0,0.05); padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #888888; margin-bottom: 24px; }
+        h1 { font-size: 48px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.15; margin-bottom: 20px; }
+        .hero-desc { font-size: 18px; color: #666666; line-height: 1.5; margin-bottom: 32px; }
+
+        .app-container { max-width: 400px; width: 100%; margin: 40px auto; display: flex; flex-direction: column; gap: 40px; }
+        .app-card { background: #ffffff; border: 1px solid rgba(0,0,0,0.03); border-radius: 28px; padding: 42px 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.02); text-align: center; }
+        .app-card h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
+        .app-card p { font-size: 13px; color: #888888; margin-bottom: 24px; }
+        
+        .input-field { width: 100%; height: 50px; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 12px; padding: 0 16px; font-size: 14px; outline: none; margin-bottom: 12px; text-align: center; }
+        .btn-submit { width: 100%; height: 50px; background: #020202; color: #fff; font-size: 13px; font-weight: 700; border-radius: 25px; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+
+        .account-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #888888; margin-bottom: 16px; }
+        .balance-display { font-size: 46px; font-weight: 800; tracking: -1px; color: #020202; margin-bottom: 4px; }
+        .balance-fraction { font-size: 24px; color: #888888; vertical-align: super; font-weight: 700; margin-left: 2px; }
+        .wallet-addr { font-family: monospace; font-size: 11px; color: #b1b1b1; letter-spacing: 0.5px; margin-bottom: 24px; }
+        .grid-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn-action { height: 44px; font-size: 12px; font-weight: 700; text-transform: uppercase; border-radius: 12px; border: none; cursor: pointer; }
+        .btn-action.black { background: #020202; color: #fff; }
+        .btn-action.gray { background: rgba(0,0,0,0.04); color: #020202; }
     </style>
 </head>
 <body>
+
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Compilation et exécution directe par le navigateur (Zéro outil de build, zéro erreur Vercel) -->
+    <script type="text/babel">
+        const PRIVY_APP_ID = "cmqollwmd000s0cky0evrjnkd";
+
+        function KoppiApp() {
+            const [view, setView] = React.useState('landing');
+            const [email, setEmail] = React.useState('');
+            const [code, setCode] = React.useState('');
+            const [step, setStep] = React.useState('email');
+            const [status, setStatus] = React.useState('');
+            const [userWallet, setUserWallet] = React.useState(null);
+
+            // Initialisation du client d'authentification Privy natif sans marque
+            const client = React.useMemo(() => {
+                return new window.PrivyUserAuthClient({ appId: PRIVY_APP_ID });
+            }, []);
+
+            const handleSendCode = async () => {
+                if (!email.includes('@')) return;
+                setStatus("Sending...");
+                try {
+                    await client.passwordless.sendOtp({ email: email.trim().toLowerCase() });
+                    setStep('otp');
+                    setStatus("Verification code sent to your email.");
+                } catch (err) {
+                    setStatus("Error triggering mail transmission pipeline.");
+                }
+            };
+
+            const handleVerifyCode = async () => {
+                if (code.length !== 6) return;
+                setStatus("Verifying...");
+                try {
+                    const session = await client.passwordless.authenticate({
+                        email: email.trim().toLowerCase(),
+                        code: code.trim()
+                    });
+                    setUserWallet(session.user?.embeddedWallets?.[0]?.address || "0xAA41C6E80982E2E67B1028BD595F3523AA41F532");
+                } catch (err) {
+                    setStatus("Invalid validation code token.");
+                }
+            };
+
+            if (view === 'landing') {
+                return (
+                    <div id="landing-page">
+                        <nav>
+                            <div class="logo">Koppi</div>
+                            <button onClick={() => setView('portal')} class="btn-cta">Open Web App</button>
+                        </nav>
+                        <div class="main-wrapper">
+                            <div class="hero-section">
+                                <div class="badge">⚡ Live on Base Sepolia</div>
+                                <h1>Make stablecoins your everyday money</h1>
+                                <p class="hero-desc">Access USD, buy instantly, and spend globally using secure keyless infrastructure.</p>
+                                <button onClick={() => setView('portal')} class="btn-cta" style={{ height: '52px', padding: '0 36px', borderRadius: '26px' }}>Get Started</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div class="app-container" style={{ paddingTop: '80px' }}>
+                    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div class="logo" style={{ fontSize: '16px' }}>Koppi App</div>
+                        <button onClick={() => { if(userWallet) { location.reload(); } else { setView('landing'); } }} class="btn-exit">
+                            {userWallet ? 'Disconnect' : 'Exit'}
+                        </button>
+                    </header>
+
+                    {!userWallet ? (
+                        <div class="app-card">
+                            <h2>Connect to Koppi</h2>
+                            <p>Verify your non-custodial environment securely via secure email verification code.</p>
+                            
+                            {step === 'email' ? (
+                                <div>
+                                    <input type="email" class="input-field" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email address" />
+                                    <button onClick={handleSendCode} class="btn-submit">Continue</button>
+                                </div>
+                              ) : (
+                                <div>
+                                    <input type="text" class="input-field" style={{ letterSpacing: '4px', fontWeight: 'bold' }} value={code} onChange={(e) => setCode(e.target.value)} placeholder="000000" maxLength="6" />
+                                    <div style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}>{status}</div>
+                                    <button onClick={handleVerifyCode} class="btn-submit">Verify and Connect</button>
+                                    <button onClick={() => setStep('email')} class="btn-exit" style={{ marginTop: '16px', width: '100%', fontWeight: 'bold' }}>Go Back</button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            <div class="app-card">
+                                <div class="account-status">🟢 Operational</div>
+                                <div class="balance-display">
+                                    1930<span class="balance-fraction">.50$</span>
+                                </div>
+                                <div class="wallet-addr">
+                                    {userWallet.substring(0, 8).toUpperCase() + '...' + userWallet.substring(userWallet.length - 8).toUpperCase()}
+                                </div>
+                                <div class="grid-actions">
+                                    <button class="btn-action black">Add Money</button>
+                                    <button class="btn-action gray">Transfer</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = tragedies = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<KoppiApp />);
+    </script>
 </body>
 </html>

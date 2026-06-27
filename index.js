@@ -2,12 +2,23 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const https = require('https');
+const path = require('path'); // 🌟 Ajouté pour gérer les dossiers proprement
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+// 🌟 CONFIGURATION POUR RENDRE KOPPI WEB FONCTIONNEL :
+// Dit à Express de distribuer automatiquement les fichiers du dossier public (CSS, JS, etc.)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Intercepte la racine du site pour charger ton interface Koppi
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Ta route de staging inchangée
 app.get('/api', (req, res) => {
     res.status(200).send('NoPay Privy & Transak Server Operational (Staging).');
 });
@@ -61,7 +72,6 @@ app.post('/api/transak', async (req, res) => {
         return res.status(400).json({ error: 'Missing walletAddress or email.' });
     }
 
-    // 🛡️ Récupération sécurisée depuis Vercel
     const API_KEY = process.env.TRANSAK_API_KEY;
     const API_SECRET = process.env.TRANSAK_API_SECRET;
 
@@ -73,7 +83,6 @@ app.post('/api/transak', async (req, res) => {
     const userIp = rawIp.split(',')[0].trim();
 
     try {
-        // 🛠️ Passage sur l'URL de STAGING pour le Refresh Token
         const tokenUrl = 'https://api-stg.transak.com/partners/api/v2/refresh-token';
         const tokenHeaders = {
             'Content-Type': 'application/json',
@@ -97,7 +106,6 @@ app.post('/api/transak', async (req, res) => {
             return res.status(500).json({ error: 'No accessToken found in Transak STG response.' });
         }
 
-        // 🛠️ Passage sur l'URL de STAGING pour la Session de Widget
         const sessionUrl = 'https://api-gateway-stg.transak.com/api/v2/auth/session';
         const sessionHeaders = {
             'Content-Type': 'application/json',
@@ -116,7 +124,7 @@ app.post('/api/transak', async (req, res) => {
                 fiatCurrency: fiatCurrency || 'USD',
                 themeColor: '000000',
                 productsAvailed: 'buy',
-                environment: 'STAGING' // Sécurité supplémentaire parfois exigée
+                environment: 'STAGING'
             }
         });
 
